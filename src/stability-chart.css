@@ -1,0 +1,3 @@
+.stability-chart { flex: 1; min-height: 0; margin: 8px 0; position: relative; }
+.stability-chart svg { width: 100%; height: 100%; }
+.chart-axis { fill: #b5c7bd; font: 10px Outfit, sans-serif; }

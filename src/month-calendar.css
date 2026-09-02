@@ -1,0 +1,9 @@
+.month-activity { margin-top: 8px; }
+.weekday-headings, .month-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
+.weekday-headings { margin-bottom: 6px; color: #b5c7bd; font-size: 9px; text-align: center; }
+.month-days { grid-template-rows: none; grid-auto-flow: row; }
+.month-days > i { height: 29px; }
+.month-days .activity-day { width: 100%; height: 29px; position: relative; border-radius: 5px; opacity: 1; }
+.month-days .activity-day span { position: absolute; top: 3px; left: 4px; color: #f1f7f6; font-size: 8px; }
+.month-days .level-0 span { color: #9eb0a6; }
+.month-days .activity-day:hover, .month-days .activity-day:focus-visible { transform: scale(1.06); outline: 2px solid #00df81; outline-offset: 1px; z-index: 2; }

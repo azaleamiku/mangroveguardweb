@@ -1,0 +1,36 @@
+.nav-button {
+  display: grid;
+  place-items: center;
+  color: #9eb0a6;
+  transition: background .18s ease, color .18s ease, transform .18s ease;
+}
+
+.nav-button:hover { transform: translateY(-1px); }
+
+.nav-button:focus-visible {
+  outline: 2px solid #00df81;
+  outline-offset: 3px;
+}
+
+.icon {
+  display: block;
+  width: 18px;
+  height: 18px;
+  flex: none;
+}
+
+.notification-dot { border-width: 1.5px; }
+
+.date-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.date-button .icon {
+  width: 14px;
+  height: 14px;
+  color: #b5c7bd;
+}
+
+.date-button b { font-weight: 700; }
