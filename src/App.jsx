@@ -39,14 +39,17 @@ function Icon({ name }) {
   return <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">{shapes[name]}</svg>
 }
 
-function SortIcon({ column, sortColumn, sortDirection }) {
-  if (sortColumn !== column) {
+function SortIcon({ column, sortColumn, sortDirection, statusFilter }) {
+  const isActive = sortColumn === column || (column === 'assessment' && statusFilter)
+
+  if (!isActive || sortDirection === null) {
     return (
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: 4, opacity: 0.6 }}>
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: 4, opacity: isActive ? 1 : 0.6 }}>
         <path d="m3 16 4 4 4-4"/><path d="M7 20V4"/><path d="m21 8-4-4-4 4"/><path d="M17 4v16"/>
       </svg>
     )
   }
+
   return sortDirection === 'asc' ? (
     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: 4 }}>
       <path d="m18 15-6-6-6 6"/>
@@ -119,18 +122,7 @@ function MonitoringStats({ logs }) {
     }
   }, [logs])
 
-  return <div className="quick-stats"><div><small>Total Scanned</small><b>{stats.totalScans} scans</b></div><div><small>Active Days</small><b>{stats.activeDays} day{stats.activeDays === 1 ? '' : 's'}</b></div></div>
-}
-
-function TreesChecked({ logs }) {
-  const scanCount = useMemo(() => {
-    const now = new Date()
-    return logs.filter(({ scannedAt }) => {
-      const date = new Date(scannedAt)
-      return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth()
-    }).length
-  }, [logs])
-  return <p>{scanCount} scan{scanCount === 1 ? '' : 's'} recorded this month</p>
+  return <div className="quick-stats"><div><small>Total Scanned</small><b>{stats.totalScans}</b></div><div><small>Active Days</small><b>{stats.activeDays} days</b></div></div>
 }
 
 function CalendarPage({ logs }) {
@@ -166,6 +158,7 @@ function LogsPage({ logs, logsConnected }) {
   const [selectedScanId, setSelectedScanId] = useState(null)
   const [sortColumn, setSortColumn] = useState('scannedAt')
   const [sortDirection, setSortDirection] = useState('desc')
+  const [statusFilter, setStatusFilter] = useState(null)
   const selectedScan = useMemo(
     () => logs.find((scan, index) => (scan.id || `${scan.treeId}-${scan.scannedAt}-${index}`) === selectedScanId) || logs[0] || null,
     [logs, selectedScanId],
@@ -180,28 +173,50 @@ function LogsPage({ logs, logsConnected }) {
     if (!hasSelectedScan) setSelectedScanId(logs[0].id || `${logs[0].treeId}-${logs[0].scannedAt}-0`)
   }, [logs, selectedScanId])
 
-  const sortedLogs = useMemo(() => {
-    const sorted = [...logs]
-    sorted.sort((a, b) => {
-      let aValue = a[sortColumn]
-      let bValue = b[sortColumn]
-      if (sortColumn === 'scannedAt') {
-        aValue = new Date(aValue).getTime()
-        bValue = new Date(bValue).getTime()
-      } else if (sortColumn === 'treeId') {
-        aValue = aValue.toLowerCase()
-        bValue = bValue.toLowerCase()
-      }
-      if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1
-      if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1
-      return 0
-    })
-    return sorted
-  }, [logs, sortColumn, sortDirection])
+  const processedLogs = useMemo(() => {
+    let result = [...logs]
+
+    if (statusFilter) {
+      result = result.filter(log => String(log.assessment || log.status).toLowerCase() === statusFilter)
+      result.sort((a, b) => new Date(b.scannedAt).getTime() - new Date(a.scannedAt).getTime())
+      return result
+    }
+
+    if (sortColumn && sortDirection) {
+      result.sort((a, b) => {
+        let aValue = a[sortColumn]
+        let bValue = b[sortColumn]
+        if (sortColumn === 'scannedAt') {
+          aValue = new Date(aValue).getTime()
+          bValue = new Date(bValue).getTime()
+        } else if (sortColumn === 'treeId') {
+          aValue = aValue.toLowerCase()
+          bValue = bValue.toLowerCase()
+        }
+        if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1
+        if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1
+        return 0
+      })
+    }
+
+    return result
+  }, [logs, statusFilter, sortColumn, sortDirection])
 
   const handleSort = (column) => {
+    if (column === 'assessment') {
+      setStatusFilter(prev => {
+        if (prev === null) return 'high'
+        if (prev === 'high') return 'moderate'
+        if (prev === 'moderate') return 'low'
+        return null
+      })
+      return
+    }
+
     if (sortColumn === column) {
-      setSortDirection(d => d === 'asc' ? 'desc' : 'asc')
+      if (sortDirection === 'asc') setSortDirection('desc')
+      else if (sortDirection === 'desc') setSortDirection(null)
+      else setSortDirection('asc')
     } else {
       setSortColumn(column)
       setSortDirection('asc')
@@ -231,7 +246,7 @@ function LogsPage({ logs, logsConnected }) {
 
   return <section className="logs-page">
     <div className="calendar-page-header"><div><p className="label">FIELD DATA</p><h2>Observation Logs</h2><p>Every mangrove assessment recorded in the field.</p></div><span className="sync-status">{logsConnected ? 'LIVE' : 'LOCAL DATA'}</span></div>
-    <div className="logs-detail-layout"><div className="full-log-table"><div className="full-log-row full-log-heading"><button type="button" className="sortable-header" onClick={() => handleSort('treeId')}><span>Tree ID</span><SortIcon column="treeId" sortColumn={sortColumn} sortDirection={sortDirection}/></button><button type="button" className="sortable-header" onClick={() => handleSort('scannedAt')}><span>Date</span><SortIcon column="scannedAt" sortColumn={sortColumn} sortDirection={sortDirection}/></button><button type="button" className="sortable-header" onClick={() => handleSort('assessment')}><span>Mangrove Status</span><SortIcon column="assessment" sortColumn={sortColumn} sortDirection={sortDirection}/></button></div><div className="log-table-body">{sortedLogs.map(({ id, treeId, scannedAt, assessment }, index) => { const label = `${assessment[0].toUpperCase()}${assessment.slice(1)}`; const rowId = id || `${treeId}-${scannedAt}-${index}`; return <button type="button" className={`full-log-row full-log-entry ${rowId === selectedScanId ? 'selected' : ''}`} key={rowId} onClick={() => setSelectedScanId(rowId)}><b>{treeId}</b><time>{formatLogDate(scannedAt)}</time><span className={`assessment ${assessment === 'low' ? 'assessment-low' : assessment}`}>{label}</span></button> })}{sortedLogs.length === 0 && <div className="full-log-empty">No field observations received yet.</div>}</div></div>
+    <div className="logs-detail-layout"><div className="full-log-table"><div className="full-log-row full-log-heading"><button type="button" className="sortable-header" onClick={() => handleSort('treeId')}><span>Tree ID</span><SortIcon column="treeId" sortColumn={sortColumn} sortDirection={sortDirection}/></button><button type="button" className="sortable-header" onClick={() => handleSort('scannedAt')}><span>Date</span><SortIcon column="scannedAt" sortColumn={sortColumn} sortDirection={sortDirection}/></button><button type="button" className="sortable-header" onClick={() => handleSort('assessment')}><span>Mangrove Status</span><SortIcon column="assessment" sortColumn={sortColumn} sortDirection={sortDirection} statusFilter={statusFilter}/></button></div><div className="log-table-body">{processedLogs.map(({ id, treeId, scannedAt, assessment }, index) => { const label = `${assessment[0].toUpperCase()}${assessment.slice(1)}`; const rowId = id || `${treeId}-${scannedAt}-${index}`; return <button type="button" className={`full-log-row full-log-entry ${rowId === selectedScanId ? 'selected' : ''}`} key={rowId} onClick={() => setSelectedScanId(rowId)}><b>{treeId}</b><time>{formatLogDate(scannedAt)}</time><span className={`assessment ${assessment === 'low' ? 'assessment-low' : assessment}`}>{label}</span></button> })}{processedLogs.length === 0 && <div className="full-log-empty">No field observations received yet.</div>}</div></div>
     {selectedScan && <div className="scan-detail-column"><article className="scan-detail-card"><div className="scan-photo-frame">{imageSource ? <img src={imageSource} alt={`${selectedScan.treeId} scan`} /> : <div className="scan-photo-empty">No image received</div>}</div><div className="scan-detail-content"><div className="scan-detail-heading"><div><p className="label">SELECTED SCAN</p><h3>{selectedScan.treeId}</h3></div><span className={`assessment ${selectedScan.assessment === 'low' ? 'assessment-low' : selectedScan.assessment}`}>{selectedLabel}</span></div><dl><div><dt>Date</dt><dd>{formatLogDate(selectedScan.scannedAt)}</dd></div><div><dt>Time</dt><dd>{formatLogTime(selectedScan.scannedAt)}</dd></div></dl></div></article>{scanGuidance && <><article className="scan-info-card"><p className="label">STATUS SUMMARY</p><p>{scanGuidance.summary}</p></article><article className="scan-info-card"><p className="label">RECOMMENDATIONS</p><ul>{scanGuidance.recommendations.map(recommendation => <li key={recommendation}>{recommendation}</li>)}</ul></article></>}</div>}</div>
   </section>
 }
@@ -338,8 +353,8 @@ export default function App() {
     }
   }, [])
   return <div className="page-shell"><div className="app-shell">
-    <aside className="sidebar"><div className="nav-group"><div className="brand"><span>•••</span><b>MG</b></div>{['home','chart','flag','calendar'].map((name,index) => <button className={`nav-button ${((index === 0 && activePage === 'dashboard') || (index === 3 && activePage === 'calendar') || (index === 1 && activePage === 'logs')) ? 'active' : ''}`} key={name} onClick={() => { if (name === 'calendar') setActivePage('calendar'); if (name === 'chart') setActivePage('logs'); if (name === 'home') setActivePage('dashboard') }} aria-label={name === 'calendar' ? 'Open calendar' : name === 'chart' ? 'Open observation logs' : name === 'home' ? 'Open dashboard' : name}><Icon name={name}/></button>)}</div><div className="nav-group secondary"><button className="nav-button"><Icon name="bell"/></button><button className="nav-button"><Icon name="settings"/></button></div></aside>
-    <main className="main-content"><header className="header"><h1>MangroveGuard</h1><button className="date-button"><Icon name="calendar"/><b>All dates</b><span>⌄</span></button></header>{activePage === 'calendar' ? <CalendarPage logs={logs}/> : activePage === 'logs' ? <LogsPage logs={logs} logsConnected={logsConnected}/> : <section className="dashboard-page"><section className="top-grid"><article className="stability-card"><p className="label">FIELD ASSESSMENT</p><h2>Mangrove Stability Index</h2><div className="stability-chart"><StabilityChart logs={logs}/></div><div className="legend chart-legend"><span><i className="low-stability-dot"/>Low</span><span><i className="moderate-stability-dot"/>Moderate</span><span><i className="high-stability-dot"/>High</span></div></article><article className="monitoring-card"><div><h2>Field Monitoring</h2><TreesChecked logs={logs}/></div><MonitoringStats logs={logs}/><YearActivity selectedMonth={month} setSelectedMonth={setSelectedMonth} logs={logs}/></article></section>
+    <aside className="sidebar"><div className="nav-group"><div className="brand"><span>•••</span><b>MG</b></div>{['home','chart','calendar','flag'].map((name,index) => <button className={`nav-button ${((index === 0 && activePage === 'dashboard') || (index === 2 && activePage === 'calendar') || (index === 1 && activePage === 'logs')) ? 'active' : ''}`} key={name} onClick={() => { if (name === 'calendar') setActivePage('calendar'); if (name === 'chart') setActivePage('logs'); if (name === 'home') setActivePage('dashboard') }} aria-label={name === 'calendar' ? 'Open calendar' : name === 'chart' ? 'Open observation logs' : name === 'home' ? 'Open dashboard' : name}><Icon name={name}/></button>)}</div><div className="nav-group secondary"><button className="nav-button"><Icon name="bell"/></button><button className="nav-button"><Icon name="settings"/></button></div></aside>
+    <main className="main-content"><header className="header"><h1>MangroveGuard</h1><button className="date-button"><Icon name="calendar"/><b>All dates</b><span>⌄</span></button></header>{activePage === 'calendar' ? <CalendarPage logs={logs}/> : activePage === 'logs' ? <LogsPage logs={logs} logsConnected={logsConnected}/> : <section className="dashboard-page"><section className="top-grid"><article className="stability-card"><p className="label">FIELD ASSESSMENT</p><h2>Mangrove Stability Index</h2><div className="stability-chart"><StabilityChart logs={logs}/></div><div className="legend chart-legend"><span><i className="low-stability-dot"/>Low</span><span><i className="moderate-stability-dot"/>Moderate</span><span><i className="high-stability-dot"/>High</span></div></article><article className="monitoring-card"><div><h2>Field Monitoring</h2></div><MonitoringStats logs={logs}/><YearActivity selectedMonth={month} setSelectedMonth={setSelectedMonth} logs={logs}/></article></section>
       <section className="bottom-grid"><HealthScore logs={logs}/><InterventionProtocol logs={logs}/></section></section>}
     </main></div></div>
 }

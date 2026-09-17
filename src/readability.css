@@ -92,10 +92,11 @@
 .protocol-card li::marker { color: #00df81; font-weight: 700; }
 .logs-page .calendar-page-header { margin-bottom: 28px; }
 .logs-detail-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(420px, 1fr); flex: 1; align-items: stretch; gap: 22px; min-height: 0; overflow: hidden; }
-.full-log-table { min-height: 0; flex: 1; overflow-y: auto; border: 1px solid #ffffff12; border-radius: 16px; scrollbar-width: none; }
-.full-log-table::-webkit-scrollbar { display: none; }
-.full-log-row { display: grid; grid-template-columns: 1fr 1.25fr 1fr; align-items: center; gap: 18px; min-height: 58px; padding: 0 20px; border-top: 1px solid #ffffff12; color: #c6d6ce; font-size: 13px; }
-.full-log-row:first-child { border-top: 0; }
+.full-log-table { min-height: 0; flex: 1; display: flex; flex-direction: column; border: 1px solid #ffffff12; border-radius: 16px; overflow: hidden; }
+.full-log-heading { flex-shrink: 0; width: 100%; display: grid; grid-template-columns: 1fr 1.25fr 1fr; gap: 18px; padding: 16px 20px; align-items: center; }
+.log-table-body { flex: 1; display: flex; flex-direction: column; overflow-y: auto; padding-right: 4px; scrollbar-width: thin; scrollbar-color: #00df81 #021b1a; }
+.full-log-entry { flex: 1; display: grid; align-items: center; grid-template-columns: 1fr 1.25fr 1fr; gap: 18px; min-height: 58px; padding: 0 20px; border-top: 1px solid #ffffff12; color: #c6d6ce; font-size: 13px; }
+.full-log-row:first-child { border-top: 1px solid #ffffff12; }
 .full-log-entry { width: 100%; border-right: 0; border-bottom: 0; border-left: 0; background: transparent; text-align: left; transition: background .16s ease, border-color .16s ease; }
 .full-log-entry:hover,
 .full-log-entry.selected { background: #00df8112; }
@@ -289,8 +290,22 @@
   max-height: 147px;
 }
 
+.monitoring-card > div { margin-bottom: 20px; }
+
 .quick-stats {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  padding: 24px 20px;
+}
+
+.quick-stats > div {
+  flex: 1;
+  text-align: center;
+}
+
+.quick-stats > div:first-child {
+  border-right: 1px solid rgba(255, 255, 255, 0.15);
 }
 
 .quick-stats b {
@@ -419,7 +434,6 @@
 .sortable-header:hover { opacity: 0.9; }
 
 .log-table-body {
-  max-height: 400px;
   overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: #00df81 #021b1a;

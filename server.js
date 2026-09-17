@@ -1,7 +1,8 @@
 import express from 'express'
-import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, writeFile, unlink } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import Database from 'better-sqlite3'
 
 const app = express()
 const port = Number(process.env.PORT || 8080)
@@ -13,39 +14,117 @@ const logSubscribers = new Set()
 
 app.use(express.json({ limit: '10mb' }))
 
-async function readScans() {
-  try {
-    const scans = JSON.parse(await readFile(scansFile, 'utf8'))
-    if (!Array.isArray(scans)) return []
+const dbPath = path.join(dataDirectory, 'mangrove.db')
+await mkdir(dataDirectory, { recursive: true })
+const db = new Database(dbPath)
 
-    let migrated = false
-    const normalizedScans = await Promise.all(scans.map(async scan => {
-      if (!scan || typeof scan !== 'object' || !scan.imageBase64) return scan
-      const id = typeof scan.id === 'string' && scan.id ? scan.id : crypto.randomUUID()
-      const imageUrl = scan.imageUrl || await saveScanImage(id, scan.imageBase64)
-      const { imageBase64, ...rest } = scan
-      migrated = true
-      return { ...rest, id, ...(imageUrl ? { imageUrl } : {}) }
-    }))
+const initDb = () => {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS scans (
+      id TEXT PRIMARY KEY,
+      treeId TEXT NOT NULL,
+      scannedAt TEXT NOT NULL,
+      assessment TEXT NOT NULL CHECK(assessment IN ('high', 'moderate', 'low')),
+      imagePath TEXT,
+      createdAt TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_scannedAt ON scans(scannedAt DESC);
+  `)
+}
 
-    if (migrated) await saveScans(normalizedScans)
-    return normalizedScans
-  } catch (error) {
-    if (error.code === 'ENOENT') return []
-    throw error
+initDb()
+
+function seedDatabase() {
+  const count = db.prepare('SELECT COUNT(*) as total FROM scans').get().total
+  if (count > 0) return
+
+  const assessments = [
+    { value: 'high', weight: 0.5 },
+    { value: 'moderate', weight: 0.3 },
+    { value: 'low', weight: 0.2 },
+  ]
+  const now = new Date()
+  const treeIds = Array.from({ length: 40 }, (_, i) => `MNG-${String(i + 1).padStart(3, '0')}`)
+  const recordsPerMonth = 84
+  const records = []
+
+  for (let monthOffset = 11; monthOffset >= 0; monthOffset--) {
+    const monthStart = new Date(now.getFullYear(), now.getMonth() - monthOffset, 1)
+    const monthEnd = new Date(now.getFullYear(), now.getMonth() - monthOffset + 1, 0, 23, 59, 59, 999)
+    const monthStartMs = monthStart.getTime()
+    const monthEndMs = monthEnd.getTime()
+
+    for (let i = 0; i < recordsPerMonth; i++) {
+      const randomTime = monthStartMs + Math.random() * (monthEndMs - monthStartMs)
+      const scannedAt = new Date(randomTime).toISOString()
+
+      const rand = Math.random()
+      const assessment = rand < assessments[0].weight
+        ? assessments[0].value
+        : rand < assessments[0].weight + assessments[1].weight
+          ? assessments[1].value
+          : assessments[2].value
+
+      const treeId = treeIds[Math.floor(Math.random() * treeIds.length)]
+
+      records.push({
+        id: crypto.randomUUID(),
+        treeId,
+        scannedAt,
+        assessment,
+        imagePath: null,
+      })
+    }
   }
+
+  records.sort((a, b) => new Date(b.scannedAt).getTime() - new Date(a.scannedAt).getTime())
+
+  const insert = db.prepare('INSERT INTO scans (id, treeId, scannedAt, assessment, imagePath) VALUES (?, ?, ?, ?, ?)')
+  const transaction = db.transaction(() => {
+    for (const scan of records) {
+      insert.run(scan.id, scan.treeId, scan.scannedAt, scan.assessment, scan.imagePath)
+    }
+  })
+  transaction()
+
+  console.log(`[Database] Seeded 1,000+ scan records (80+ per month) across the past 12 months.`)
 }
 
-async function saveScans(scans) {
-  await mkdir(dataDirectory, { recursive: true })
-  const temporaryFile = `${scansFile}.tmp`
-  await writeFile(temporaryFile, JSON.stringify(scans, null, 2), 'utf8')
-  await rename(temporaryFile, scansFile)
-}
+// seedDatabase()
 
-function notifyLogSubscribers() {
-  for (const response of logSubscribers) {
-    response.write('event: scans-updated\\ndata: updated\\n\\n')
+async function migrateFromJson() {
+  try {
+    const content = await readFile(scansFile, 'utf8')
+    const scans = JSON.parse(content)
+    if (!Array.isArray(scans) || scans.length === 0) return
+
+    const insert = db.prepare('INSERT OR IGNORE INTO scans (id, treeId, scannedAt, assessment, imagePath) VALUES (?, ?, ?, ?, ?)')
+    const transaction = db.transaction(async () => {
+      for (const scan of scans) {
+        if (!scan || typeof scan !== 'object') continue
+        const id = typeof scan.id === 'string' && scan.id ? scan.id : crypto.randomUUID()
+        const treeId = typeof scan.treeId === 'string' ? scan.treeId.trim() : ''
+        const scannedAt = typeof scan.scannedAt === 'string' ? scan.scannedAt : ''
+        const assessment = typeof scan.assessment === 'string' ? scan.assessment.toLowerCase() : ''
+
+        if (!treeId || !['high', 'moderate', 'low'].includes(assessment)) continue
+
+        let imagePath = scan.imageUrl || scan.imagePath || ''
+        if (!imagePath && scan.imageBase64) {
+          const saved = await saveScanImage(id, scan.imageBase64)
+          if (saved) imagePath = saved
+        }
+
+        insert.run(id, treeId, scannedAt, assessment, imagePath)
+      }
+    })
+    await transaction()
+
+    await unlink(scansFile)
+  } catch (error) {
+    if (error.code !== 'ENOENT') {
+      console.error('Migration error:', error)
+    }
   }
 }
 
@@ -59,6 +138,12 @@ async function saveScanImage(scanId, imageBase64) {
   const fileName = `${scanId}.jpg`
   await writeFile(path.join(imagesDirectory, fileName), imageBuffer)
   return `/scan-images/${fileName}`
+}
+
+function notifyLogSubscribers() {
+  for (const response of logSubscribers) {
+    response.write('event: scans-updated\\ndata: updated\\n\\n')
+  }
 }
 
 async function toScan(payload) {
@@ -79,16 +164,13 @@ async function toScan(payload) {
     scannedAt: scannedAt.toISOString(),
     assessment,
     ...(imageUrl ? { imageUrl } : {}),
-    ...(typeof payload.predictionConfidence === 'number' && Number.isFinite(payload.predictionConfidence)
-      ? { predictionConfidence: payload.predictionConfidence }
-      : {}),
   }
 }
 
-app.get('/api/scans', async (_request, response, next) => {
+app.get('/api/scans', (_request, response, next) => {
   try {
-    const scans = await readScans()
-    response.json(scans.sort((a, b) => Date.parse(b.scannedAt) - Date.parse(a.scannedAt)))
+    const scans = db.prepare('SELECT id, treeId, scannedAt, assessment, imagePath as imageUrl FROM scans ORDER BY scannedAt DESC').all()
+    response.json(scans)
   } catch (error) { next(error) }
 })
 
@@ -107,9 +189,10 @@ app.post('/api/scans', async (request, response, next) => {
   try {
     const scan = await toScan(request.body || {})
     if (!scan) return response.status(400).json({ error: 'treeId, scannedAt, and a valid assessment are required.' })
-    const scans = await readScans()
-    scans.unshift(scan)
-    await saveScans(scans.slice(0, 500))
+
+    const insert = db.prepare('INSERT INTO scans (id, treeId, scannedAt, assessment, imagePath) VALUES (?, ?, ?, ?, ?)')
+    insert.run(scan.id, scan.treeId, scan.scannedAt, scan.assessment, scan.imageUrl || '')
+
     notifyLogSubscribers()
     response.status(201).json(scan)
   } catch (error) { next(error) }
