@@ -49,8 +49,8 @@ export default function StabilityChart({ logs }) {
     >
       <defs>
         <linearGradient id="lowFill" x1="0" y1="0" x2="0" y2="1">
-          <stop stopColor="#ef4444" stopOpacity=".32" />
-          <stop offset="1" stopColor="#ef4444" stopOpacity=".03" />
+          <stop stopColor="var(--color-danger)" stopOpacity=".32" />
+          <stop offset="1" stopColor="var(--color-danger)" stopOpacity=".03" />
         </linearGradient>
       </defs>
       <g className="reference-grid">

@@ -1,27 +1,27 @@
 .observation-logs { min-width: 0; }
 .sync-status {
   margin-left: 14px;
-  border: 1px solid #00df8166;
+  border: 1px solid var(--color-border-accent-medium);
   border-radius: 999px;
   padding: 8px 12px;
-  background: #00df8114;
-  color: #00df81;
+  background: var(--color-overlay-accent);
+  color: var(--color-accent);
   font-size: 13px;
   font-weight: 800;
   letter-spacing: .08em;
 }
-.empty-logs { margin: 14px 0 0; color: #b5c7bd; font-size: 12px; }
+.empty-logs { margin: 14px 0 0; color: var(--color-text-muted); font-size: 12px; }
 .log-table {
   max-height: 147px;
   margin-top: 14px;
   overflow-y: auto;
   padding-right: 5px;
   scrollbar-width: thin;
-  scrollbar-color: #03624c transparent;
+  scrollbar-color: var(--color-accent-dark) transparent;
 }
 
 .log-table::-webkit-scrollbar { width: 6px; }
-.log-table::-webkit-scrollbar-thumb { background: #03624c; border-radius: 999px; }
+.log-table::-webkit-scrollbar-thumb { background: var(--color-accent-dark); border-radius: 999px; }
 
 .log-row {
   display: grid;
@@ -29,8 +29,8 @@
   align-items: center;
   gap: 10px;
   min-height: 39px;
-  border-top: 1px solid #ffffff12;
-  color: #b5c7bd;
+  border-top: 1px solid var(--color-border-subtle);
+  color: var(--color-text-muted);
   font-size: 12px;
 }
 
@@ -38,18 +38,18 @@
   position: sticky;
   top: 0;
   z-index: 1;
-  background: #021b1a;
+  background: var(--color-bg-deepest);
   min-height: 30px;
   border-top: 0;
-  color: #00df81;
+  color: var(--color-accent);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: .08em;
   text-transform: uppercase;
 }
 
-.log-row b { color: #f1f7f6; font-size: 12px; }
-.log-row time { color: #b5c7bd; }
+.log-row b { color: var(--color-text-primary); font-size: 12px; }
+.log-row time { color: var(--color-text-muted); }
 
 .assessment {
   justify-self: start;
@@ -59,9 +59,9 @@
   font-weight: 700;
 }
 
-.assessment.high { background: #00df81; color: #021b1a; }
-.assessment.moderate { background: #f59e0b; color: #021b1a; }
-.assessment.assessment-low { background: #ef4444; color: #021b1a; }
+.assessment.high { background: var(--color-accent); color: var(--color-bg-deepest); }
+.assessment.moderate { background: var(--color-warning); color: var(--color-bg-deepest); }
+.assessment.assessment-low { background: var(--color-danger); color: var(--color-bg-deepest); }
 
 @media (max-width: 520px) {
   .log-row { grid-template-columns: .9fr 1.2fr .8fr; gap: 5px; font-size: 10px; }

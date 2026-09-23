@@ -1,14 +1,14 @@
 .nav-button {
   display: grid;
   place-items: center;
-  color: #9eb0a6;
+  color: var(--color-text-disabled);
   transition: background .18s ease, color .18s ease, transform .18s ease;
 }
 
 .nav-button:hover { transform: translateY(-1px); }
 
 .nav-button:focus-visible {
-  outline: 2px solid #00df81;
+  outline: 2px solid var(--color-accent);
   outline-offset: 3px;
 }
 
@@ -30,7 +30,7 @@
 .date-button .icon {
   width: 14px;
   height: 14px;
-  color: #b5c7bd;
+  color: var(--color-text-muted);
 }
 
 .date-button b { font-weight: 700; }
