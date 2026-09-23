@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useMemo, useRef, useState, useEffect } from 'react'
 import StabilityChart from '../components/StabilityChart.jsx'
 import HealthScore from '../components/HealthScore.jsx'
 import { formatLogDate, formatLogTime, getDayKey, months } from '../utils.js'
@@ -53,11 +53,34 @@ function YearActivity({ selectedMonth, setSelectedMonth, logs }) {
 
   const closeMenu = () => setMonthMenuOpen(false)
 
+  useEffect(() => {
+    if (!monthMenuOpen) return
+    const handleClick = (event) => {
+      if (pickerRef.current && !pickerRef.current.contains(event.target)) {
+        closeMenu()
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [monthMenuOpen])
+
   return <div className="activity-section">
     <div className="activity-toolbar">
+      <span className="activity-hint">Hover a day to view scans</span>
+      <span className="activity-toolbar-divider" aria-hidden="true" />
+      <span className="activity-legend" aria-label="Scan activity legend">
+        <span>Less</span>
+        <i className="level-0" />
+        <i className="level-1" />
+        <i className="level-2" />
+        <i className="level-3" />
+        <i className="level-4" />
+        <span>More</span>
+      </span>
+      <span className="activity-toolbar-divider" aria-hidden="true" />
       <label id="activity-month-label">View month</label>
-      <div className="month-picker relative">
-        <button ref={pickerRef} className="month-picker-button" type="button" aria-labelledby="activity-month-label month-picker-value" aria-expanded={monthMenuOpen} aria-haspopup="listbox" onClick={() => setMonthMenuOpen((open) => !open)}>
+      <div className="month-picker relative" ref={pickerRef}>
+        <button className="month-picker-button" type="button" aria-labelledby="activity-month-label month-picker-value" aria-expanded={monthMenuOpen} aria-haspopup="listbox" onClick={() => setMonthMenuOpen((open) => !open)}>
           <span id="month-picker-value">{months[selectedMonth]} 2026</span>
           <span className="month-picker-chevron" aria-hidden="true">⌄</span>
         </button>
@@ -96,18 +119,6 @@ function YearActivity({ selectedMonth, setSelectedMonth, logs }) {
           </button>
         ))}
       </div>
-    </div>
-    <div className="activity-footer">
-      <span>Hover a day to view scans</span>
-      <span className="activity-legend" aria-label="Scan activity legend">
-        <span>Less</span>
-        <i className="level-0" />
-        <i className="level-1" />
-        <i className="level-2" />
-        <i className="level-3" />
-        <i className="level-4" />
-        <span>More</span>
-      </span>
     </div>
   </div>
 }
