@@ -4,14 +4,12 @@ const primaryNav = [
   { id: 'dashboard', label: 'Home', icon: 'home', page: 'dashboard' },
   { id: 'logs', label: 'Chart', icon: 'chart', page: 'logs' },
   { id: 'calendar', label: 'Calendar', icon: 'calendar', page: 'calendar' },
-  { id: 'flag', label: 'Flag', icon: 'flag', page: null },
 ]
 
 const secondaryNav = [
-  { id: 'notifications', label: 'Notifications', icon: 'bell', page: null },
   { id: 'devices', label: 'Devices', icon: 'devices', page: 'devices' },
   { id: 'sessions', label: 'Sessions', icon: 'sessions', page: 'sessions' },
-  { id: 'settings', label: 'Settings', icon: 'settings', page: 'deletion-log' },
+  { id: 'deleted-scans', label: 'Deleted scans', icon: 'trash', page: 'deletion-log' },
 ]
 
 export default function Sidebar({ activePage, onNavigate }) {
