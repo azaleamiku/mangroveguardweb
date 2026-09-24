@@ -35,6 +35,7 @@ export default function StabilityChart({ logs }) {
   const areaPath = (key) => `${linePath(key)} L620 175 L34 175Z`
   const point = hoveredIndex === null ? null : points[hoveredIndex]
   const tooltipY = point ? Math.max(2, Math.min(96, Math.min(point.lowY, point.moderateY, point.highY) - 92)) : 2
+  const tooltipX = point ? Math.max(65, Math.min(575, point.x)) : 34
   const tooltipDate = hoveredIndex === null ? '' : fullMonths[hoveredIndex]
   const hovered = hoveredIndex === null ? null : monthly[hoveredIndex]
 
@@ -90,15 +91,15 @@ export default function StabilityChart({ logs }) {
       {point && (
         <>
           <line className="reference-marker" x1={point.x} y1="18" x2={point.x} y2="175" />
-          <g className="reference-tooltip" transform={`translate(${point.x}, ${tooltipY})`}>
-            <rect x="-45" y="0" width="90" height="52" rx="6" />
+          <g className="reference-tooltip" transform={`translate(${tooltipX}, ${tooltipY})`}>
+            <rect x="-65" y="0" width="130" height="52" rx="6" />
             <text className="tooltip-date" x="0" y="16" textAnchor="middle">{tooltipDate}</text>
-            <circle className="low-dot" cx="-28" cy="32" r="3" />
-            <text x="-22" y="36">{hovered.low}</text>
-            <circle className="moderate-dot" cx="-2" cy="32" r="3" />
-            <text x="4" y="36">{hovered.moderate}</text>
-            <circle className="high-dot" cx="24" cy="32" r="3" />
-            <text x="30" y="36">{hovered.high}</text>
+            <circle className="low-dot" cx="-42" cy="32" r="3" />
+            <text x="-38" y="36" textAnchor="start">{hovered.low}</text>
+            <circle className="moderate-dot" cx="-8" cy="32" r="3" />
+            <text x="-4" y="36" textAnchor="start">{hovered.moderate}</text>
+            <circle className="high-dot" cx="26" cy="32" r="3" />
+            <text x="30" y="36" textAnchor="start">{hovered.high}</text>
           </g>
         </>
       )}

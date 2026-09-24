@@ -310,7 +310,7 @@
 .reference-marker-dot { fill: var(--color-accent-dark); stroke: var(--color-chart-reference-marker-dot-stroke); stroke-width: 2; }
 .chart-point { cursor: pointer; }
 .chart-point .hover-target { fill: transparent; stroke: transparent; pointer-events: all; }
-.reference-tooltip rect { fill: var(--color-reference-tooltip-bg)ee; stroke: var(--color-reference-tooltip-border); filter: drop-shadow(0 4px 8px var(--color-overlay-dark-drop)); }
+.reference-tooltip rect { fill: var(--color-reference-tooltip-bg); stroke: var(--color-reference-tooltip-border); filter: drop-shadow(0 4px 8px var(--color-overlay-dark-drop)); }
 .reference-tooltip text { fill: var(--color-reference-tooltip-text); font: 10px "Plus Jakarta Sans", sans-serif; }
 .reference-tooltip .tooltip-date { font-weight: 600; }
 .reference-tooltip .success-dot,

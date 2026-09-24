@@ -163,7 +163,7 @@ function seedDatabase() {
   console.log(`[Database] Seeded ${records.length} scan records with devices and sessions.`)
 }
 
-// seedDatabase()
+seedDatabase()
 
 async function migrateFromJson() {
   try {
