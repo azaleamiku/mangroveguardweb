@@ -31,7 +31,7 @@ export default function Sidebar({ activePage, onNavigate }) {
       <div className="nav-group secondary">
         {secondaryNav.map((item) => (
           <button
-            className="nav-button"
+            className={`nav-button ${activePage === item.page ? 'active' : ''}`}
             key={item.id}
             onClick={() => item.page && onNavigate(item.page)}
             aria-label={item.label}
