@@ -3,6 +3,7 @@ import { mkdir, readFile, writeFile, unlink } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import Database from 'better-sqlite3'
+import QRCode from 'qrcode'
 
 const app = express()
 const port = Number(process.env.PORT || 8080)
@@ -11,6 +12,42 @@ const dataDirectory = process.env.DATA_DIRECTORY || path.join(root, 'data')
 const scansFile = path.join(dataDirectory, 'scans.json')
 const imagesDirectory = path.join(dataDirectory, 'scan-images')
 const logSubscribers = new Set()
+const pairTokens = new Map()
+
+async function generateStyledQrDataUrl(text) {
+  const qr = await QRCode.create(text, { errorCorrectionLevel: 'H' })
+  const size = qr.modules.size
+  const margin = 2
+  const scale = 2
+  const svgSize = (size + margin * 2) * scale
+  let svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${svgSize} ${svgSize}" width="${svgSize}" height="${svgSize}" shape-rendering="crispEdges">`
+  svg += `<defs><linearGradient id="qrGradient" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="${svgSize}" y2="${svgSize}"><stop offset="0%" stop-color="#20B2AA"/><stop offset="100%" stop-color="#0f172a"/></linearGradient></defs>`
+  svg += `<rect width="${svgSize}" height="${svgSize}" fill="#ffffff"/>`
+  for (let row = 0; row < size; row++) {
+    for (let col = 0; col < size; col++) {
+      if (qr.modules.data[`${row * size + col}`]) {
+        const x = (col + margin) * scale
+        const y = (row + margin) * scale
+        svg += `<rect x="${x}" y="${y}" width="${scale}" height="${scale}" fill="url(#qrGradient)"/>`
+      }
+    }
+  }
+  const logoModules = 11
+  const logoSize = logoModules * scale
+  const logoX = (margin + Math.floor((size - logoModules) / 2)) * scale
+  const logoY = (margin + Math.floor((size - logoModules) / 2)) * scale
+  svg += `<rect x="${logoX}" y="${logoY}" width="${logoSize}" height="${logoSize}" fill="#ffffff"/>`
+  try {
+    const logoPath = path.join(root, 'public', 'mangroveguard-logo.png')
+    const logoBuffer = await readFile(logoPath)
+    const logoBase64 = logoBuffer.toString('base64')
+    svg += `<image href="data:image/png;base64,${logoBase64}" x="${logoX}" y="${logoY}" width="${logoSize}" height="${logoSize}" preserveAspectRatio="xMidYMid meet"/>`
+  } catch (error) {
+    console.error('Logo embed error:', error)
+  }
+  svg += `</svg>`
+  return 'data:image/svg+xml;base64,' + Buffer.from(svg).toString('base64')
+}
 
 app.use(express.json({ limit: '10mb' }))
 
@@ -163,7 +200,7 @@ function seedDatabase() {
   console.log(`[Database] Seeded ${records.length} scan records with devices and sessions.`)
 }
 
-seedDatabase()
+//seedDatabase()
 
 async function migrateFromJson() {
   try {
@@ -361,6 +398,48 @@ app.get('/api/deletion-history', (_request, response, next) => {
 })
 
 app.use('/scan-images', express.static(imagesDirectory))
+
+app.get('/api/pair/qr', async (req, res) => {
+  try {
+    const token = crypto.randomUUID()
+    const baseUrl = `${req.protocol}://${req.get('host')}`
+    const pairUrl = `${baseUrl}/pair?token=${token}`
+    pairTokens.set(token, { createdAt: Date.now(), used: false })
+
+    const qrDataUrl = await generateStyledQrDataUrl(pairUrl)
+    res.json({ token, url: pairUrl, qrDataUrl })
+  } catch (error) {
+    console.error('QR generation error:', error)
+    res.status(500).json({ error: 'Unable to generate QR' })
+  }
+})
+
+app.get('/pair', (req, res) => {
+  const token = typeof req.query.token === 'string' ? req.query.token.trim() : ''
+  if (!token) return res.status(400).send('Missing token')
+
+  const record = pairTokens.get(token)
+  if (!record || record.used) return res.status(400).send('Invalid or expired token')
+
+  res.send(`<!doctype html><html><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Pair Device</title><style>body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;background:#0f172a;color:#e2e8f0}form{display:flex;flex-direction:column;gap:12px;width:min(360px,90vw);padding:24px;border-radius:24px;background:#1e293b;box-shadow:0 20px 50px rgba(15,23,42,0.5)}input{padding:14px 16px;border-radius:14px;border:1px solid #334155;background:#0f172a;color:#f8fafc;font:inherit;font-size:14px}button{padding:14px;border:0;border-radius:14px;background:#10b981;color:#fff;font-weight:700;cursor:pointer}label{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#94a3b8}</style></head><body><form method="POST" action="/api/pair/confirm"><input type="hidden" name="token" value="${token}"/><div><label>Device ID</label><input name="deviceId" required placeholder="Device ID"/></div><div><label>Device Name</label><input name="deviceName" placeholder="Optional"/></div><button type="submit">Confirm Pairing</button></form></body></html>`)
+})
+
+app.post('/api/pair/confirm', (req, res) => {
+  const body = req.body || {}
+  const token = typeof body.token === 'string' ? body.token.trim() : ''
+  const deviceId = typeof body.deviceId === 'string' ? body.deviceId.trim() : typeof body.device_id === 'string' ? body.device_id.trim() : ''
+  const deviceName = typeof body.deviceName === 'string' ? body.deviceName.trim() : typeof body.device_name === 'string' ? body.device_name.trim() : ''
+  const record = pairTokens.get(token)
+  if (!record || record.used) return res.status(400).json({ error: 'Invalid or expired token' })
+  if (!deviceId) return res.status(400).json({ error: 'deviceId is required' })
+
+  record.used = true
+  const now = new Date().toISOString()
+  db.prepare('INSERT OR IGNORE INTO devices (deviceId, deviceName, registeredAt, lastSeenAt) VALUES (?, ?, ?, ?)').run(deviceId, deviceName || deviceId, now, now)
+  db.prepare('UPDATE devices SET lastSeenAt = ?, deviceName = COALESCE(?, deviceName) WHERE deviceId = ?').run(now, deviceName || null, deviceId)
+
+  res.status(201).json({ deviceId, pairedAt: now })
+})
 app.use(express.static(path.join(root, 'dist')))
 app.get('*splat', (_request, response) => response.sendFile(path.join(root, 'dist', 'index.html')))
 app.use((error, _request, response, _next) => {

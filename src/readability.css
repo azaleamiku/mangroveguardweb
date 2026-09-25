@@ -153,15 +153,19 @@
 
 .camera-placeholder {
   box-sizing: border-box;
-  width: 100%;
-  aspect-ratio: 4/3;
-  min-height: 220px;
-  border: 2px dashed var(--color-border-medium);
-  border-radius: 24px;
-  background: var(--color-bg-deepest);
   display: flex;
   align-items: center;
   justify-content: center;
+  border: 1px solid var(--color-border-medium);
+  border-radius: 24px;
+  background: var(--color-bg-deepest);
+}
+
+.camera-placeholder img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 20px;
 }
 
 .camera-label {
@@ -206,6 +210,20 @@
   font-size: 14px;
   font-weight: 700;
   cursor: not-allowed;
+}
+
+.pair-confirm-button:not(:disabled) {
+  background: var(--color-accent);
+  color: var(--color-text-inverse);
+  cursor: pointer;
+}
+
+.qr-status {
+  color: var(--color-accent);
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+  min-height: 18px;
 }
 
 .top-grid { flex: 1.2; min-height: 0; }
@@ -360,12 +378,6 @@
 .calendar-day:hover { transform: translateY(-2px); border-color: var(--color-border-accent-hover); }
 .calendar-day strong { font-size: 14px; }
 .calendar-day small { padding: 4px 7px; border-radius: 999px; background: var(--color-overlay-dark-strong); color: var(--color-text-secondary); font-size: 10px; }
-.calendar-day.level-0 { background: var(--color-bg-deepest); }
-.calendar-day.level-1 { background: var(--color-accent-dark); }
-.calendar-day.level-2 { background: var(--color-accent-mid); }
-.calendar-day.level-3 { background: var(--color-accent-medium); }
-.calendar-day.level-4 { background: var(--color-accent); color: var(--color-bg-deepest); }
-.calendar-day.level-4 small { background: var(--color-overlay-light); color: var(--color-bg-deepest); }
 .calendar-summary { display: flex; justify-content: space-between; gap: 18px; margin-top: 22px; color: var(--color-text-secondary); font-size: 14px; }
 .calendar-summary b { color: var(--color-accent); font-size: 16px; }
 .calendar-summary span:last-child { display: flex; align-items: center; gap: 7px; }
@@ -423,7 +435,7 @@
 .analytics-chart .chart-points:focus-visible circle { stroke: var(--color-text-primary); stroke-width: 2; }
 .analytics-chart .scan-point { fill: var(--color-accent); }
 .analytics-chart .stability-point { fill: var(--color-accent-light); }
-.analytics-chart .chart-tooltip rect { fill: var(--color-bg-surface); stroke: var(--color-border-mint-medium); }
+.analytics-chart .chart-tooltip rect { fill: var(--color-bg-surface); stroke: var(--color-border-mint-medium); filter: drop-shadow(0 4px 8px var(--color-overlay-dark-drop)); }
 .analytics-chart .chart-tooltip text { fill: var(--color-text-primary); font: 9px "Plus Jakarta Sans", sans-serif; }
 .analytics-chart .chart-tooltip text:nth-of-type(2) { fill: var(--color-accent); }
 .analytics-chart .chart-tooltip text:nth-of-type(3) { fill: var(--color-accent-light); }
@@ -435,8 +447,7 @@
 .stability-card > .chart-legend span { display: inline-flex; align-items: center; gap: 7px; padding: 0; border: 0; background: none; font-size: 11px; }
 .stability-card > .chart-legend i { width: 20px; height: 4px; border-radius: 999px; }
 .stability-card > .chart-legend .low-stability-dot { background: var(--color-danger); }
-.stability-card > .chart-legend .moderate-stability-dot { background: var(--color-warning); }
-.stability-card > .chart-legend .high-stability-dot { background: var(--color-accent-light); }
+.stability-card > .chart-legend .moderate-stability-dot { background: var(--color-accent-light); }
 .chart-legend { display: none; }
 .chart-legend span { padding: 6px 9px; border: 1px solid var(--color-border-medium-subtle); border-radius: 999px; background: var(--color-overlay-dark); font-size: 11px; }
 .chart-legend i { width: 18px; height: 5px; }
@@ -449,7 +460,7 @@
 .reference-chart { width: 100%; height: 100%; }
 .stability-card .stability-chart > svg:first-child { display: block; }
 .reference-grid { fill: none; stroke: var(--color-chart-reference-grid); stroke-width: 1; }
-.reference-axis { fill: var(--color-chart-reference-axis); font: 11px "Plus Jakarta Sans", sans-serif; }
+.reference-axis { fill: none; stroke: var(--color-chart-reference-axis); font: 11px "Plus Jakarta Sans", sans-serif; }
 .reference-area { stroke: none; }
 .success-area,
 .low-area { fill: url(#lowFill); }
@@ -756,17 +767,6 @@ body { font-size: 16px; }
 .reference-axis { font-size: 13px; }
 .reference-tooltip text { font-size: 12px; }
 .weekday-headings { font-size: 11px; }
-.month-days .activity-day span { font-size: 9px; }
-.log-row,
-.empty-logs { font-size: 14px; }
-.log-heading,
-.assessment { font-size: 12px; }
-.activity-toolbar,
-.year-months,
-.months,
-.week-labels,
-.days { font-size: 12px; }
-.weekday-headings { font-size: 13px; }
 .month-days { grid-template-columns: repeat(7, minmax(0, 1fr)); grid-template-rows: none; grid-auto-rows: 24px; gap: 4px; }
 .month-days > i { height: 24px; }
 .month-days .activity-day { width: 100%; height: 24px; }

@@ -4,10 +4,56 @@ import { formatDateTime, isOnline } from '../utils.js'
 export default function DevicesPage({ devices: initialDevices }) {
   const [devices, setDevices] = useState(initialDevices)
   const [isAddPanelOpen, setIsAddPanelOpen] = useState(false)
+  const [qr, setQr] = useState(null)
+  const [deviceId, setDeviceId] = useState('')
+  const [deviceName, setDeviceName] = useState('')
+  const [statusMessage, setStatusMessage] = useState('')
 
   useEffect(() => {
     setDevices(initialDevices)
   }, [initialDevices])
+
+  useEffect(() => {
+    if (!isAddPanelOpen) return
+    let cancelled = false
+    async function loadQr() {
+      try {
+        const res = await fetch('/api/pair/qr')
+        const data = await res.json()
+        if (!cancelled && data && data.qrDataUrl) setQr(data)
+      } catch {}
+    }
+    loadQr()
+    return () => { cancelled = true }
+  }, [isAddPanelOpen])
+
+  async function confirmPairing() {
+    setStatusMessage('')
+    if (!qr || !deviceId) {
+      setStatusMessage('Device ID is required')
+      return
+    }
+    try {
+      const res = await fetch('/api/pair/confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: qr.token, deviceId, deviceName: deviceName || deviceId }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Pairing failed')
+      setStatusMessage(`Paired ${data.deviceId}`)
+      setDeviceId('')
+      setDeviceName('')
+      const res2 = await fetch('/api/pair/qr')
+      const data2 = await res2.json()
+      if (data2 && data2.qrDataUrl) setQr(data2)
+    } catch (error) {
+      setStatusMessage(error.message)
+      const res2 = await fetch('/api/pair/qr')
+      const data2 = await res2.json()
+      if (data2 && data2.qrDataUrl) setQr(data2)
+    }
+  }
 
   return (
     <section className="devices-page">
@@ -69,15 +115,24 @@ export default function DevicesPage({ devices: initialDevices }) {
         <div className="devices-add-panel">
           <div className="qr-pair-body">
             <div className="camera-placeholder">
-              <span className="camera-label">[ Placeholder: QR Code Scanner ]</span>
+              {qr && qr.qrDataUrl ? (
+                <img src={qr.qrDataUrl} alt="Pairing QR" />
+              ) : (
+                <span className="camera-label">Generating QR...</span>
+              )}
             </div>
             <div className="qr-pair-form">
               <div className="form-field">
                 <label className="form-label">Device ID</label>
-                <input className="form-input" placeholder="[ Input Placeholder: Device ID (Auto-fill) ]" disabled />
+                <input className="form-input" value={deviceId} onChange={(e) => setDeviceId(e.target.value)} placeholder="Device ID" />
               </div>
+              <div className="form-field">
+                <label className="form-label">Device Name</label>
+                <input className="form-input" value={deviceName} onChange={(e) => setDeviceName(e.target.value)} placeholder="Optional name" />
+              </div>
+              {statusMessage && <p className="qr-status">{statusMessage}</p>}
             </div>
-            <button className="pair-confirm-button" disabled>Confirm Pairing</button>
+            <button className="pair-confirm-button" onClick={confirmPairing} disabled={!qr || !deviceId}>Confirm Pairing</button>
           </div>
         </div>
       </div>
