@@ -401,8 +401,9 @@ app.use('/scan-images', express.static(imagesDirectory))
 
 app.get('/api/pair/qr', async (req, res) => {
   try {
+    const publicBaseUrl = (process.env.PUBLIC_BASE_URL || '').trim()
+    const baseUrl = publicBaseUrl || `${req.get('x-forwarded-proto') || req.protocol}://${req.get('x-forwarded-host') || req.get('host')}`
     const token = crypto.randomUUID()
-    const baseUrl = `${req.protocol}://${req.get('host')}`
     const pairUrl = `${baseUrl}/pair?token=${token}`
     pairTokens.set(token, { createdAt: Date.now(), used: false })
 
