@@ -20,7 +20,7 @@ async function generateStyledQrDataUrl(text) {
   const margin = 2
   const scale = 2
   const svgSize = (size + margin * 2) * scale
-  let svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${svgSize} ${svgSize}" width="${svgSize}" height="${svgSize}" shape-rendering="crispEdges">`
+  let svg = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 ${svgSize} ${svgSize}" width="${svgSize}" height="${svgSize}" shape-rendering="crispEdges">`
   svg += `<defs><linearGradient id="qrGradient" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="${svgSize}" y2="${svgSize}"><stop offset="0%" stop-color="#20B2AA"/><stop offset="100%" stop-color="#0f172a"/></linearGradient></defs>`
   svg += `<rect width="${svgSize}" height="${svgSize}" fill="#ffffff"/>`
   for (let row = 0; row < size; row++) {
@@ -41,7 +41,7 @@ async function generateStyledQrDataUrl(text) {
     const logoPath = path.join(root, 'public', 'mangroveguard-logo.png')
     const logoBuffer = await readFile(logoPath)
     const logoBase64 = logoBuffer.toString('base64')
-    svg += `<image href="data:image/png;base64,${logoBase64}" x="${logoX}" y="${logoY}" width="${logoSize}" height="${logoSize}" preserveAspectRatio="xMidYMid meet"/>`
+    svg += `<image href="data:image/png;base64,${logoBase64}" xlink:href="data:image/png;base64,${logoBase64}" x="${logoX}" y="${logoY}" width="${logoSize}" height="${logoSize}" preserveAspectRatio="xMidYMid meet"/>`
   } catch (error) {
     console.error('Logo embed error:', error)
   }
