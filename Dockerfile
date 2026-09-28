@@ -16,6 +16,9 @@ RUN apk add --no-cache --virtual .build-deps python3 make g++ \
   && apk del .build-deps
 COPY --from=build /app/dist ./dist
 COPY server.js ./
+COPY db/ ./db/
+COPY services/ ./services/
+COPY routes/ ./routes/
 RUN mkdir -p /app/data
 VOLUME ["/app/data"]
 EXPOSE 8080

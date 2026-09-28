@@ -1,5 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { formatDateTime, isOnline } from '../utils.js'
+
+function getDeviceStatus(device) {
+  if (!device.lastPairedToken) return 'Unpaired'
+  return isOnline(device.lastSeenAt) ? 'Online' : 'Offline'
+}
 
 export default function DevicesPage({ devices: initialDevices }) {
   const [devices, setDevices] = useState(initialDevices)
@@ -8,6 +13,10 @@ export default function DevicesPage({ devices: initialDevices }) {
   const [deviceId, setDeviceId] = useState('')
   const [deviceName, setDeviceName] = useState('')
   const [statusMessage, setStatusMessage] = useState('')
+  const [qrStatus, setQrStatus] = useState('idle')
+  const [pairedDevice, setPairedDevice] = useState(null)
+  const knownDeviceIdsRef = useRef(new Set())
+  const currentTokenRef = useRef(null)
 
   useEffect(() => {
     setDevices(initialDevices)
@@ -16,44 +25,118 @@ export default function DevicesPage({ devices: initialDevices }) {
   useEffect(() => {
     if (!isAddPanelOpen) return
     let cancelled = false
+    let controller = null
+
     async function loadQr() {
+      setQrStatus('loading')
+      setPairedDevice(null)
+      setDeviceId('')
+      setDeviceName('')
+      setStatusMessage('')
+      knownDeviceIdsRef.current = new Set()
+      currentTokenRef.current = null
+
       try {
         const res = await fetch('/api/pair/qr')
         const data = await res.json()
-        if (!cancelled && data && data.qrDataUrl) setQr(data)
-      } catch {}
+        if (!cancelled && data && data.qrDataUrl) {
+          setQr(data)
+          currentTokenRef.current = data.token
+          knownDeviceIdsRef.current = new Set(devices.map(d => d.deviceId))
+          setQrStatus('ready')
+        } else if (!cancelled) {
+          setQrStatus('error')
+        }
+      } catch (e) {
+        if (!cancelled) setQrStatus('error')
+      }
     }
+
     loadQr()
-    return () => { cancelled = true }
+
+    return () => {
+      cancelled = true
+      if (controller) controller.abort()
+    }
   }, [isAddPanelOpen])
 
-  async function confirmPairing() {
+   useEffect(() => {
+     if (!isAddPanelOpen || qrStatus !== 'ready') return
+
+     const token = currentTokenRef.current
+     if (!token) return
+
+     const matchedDevice = devices.find(d => d.lastPairedToken === token)
+     if (matchedDevice) {
+       setPairedDevice(matchedDevice)
+       setDeviceId(matchedDevice.deviceId)
+       setDeviceName(matchedDevice.deviceName || matchedDevice.deviceId)
+       setQrStatus('connected')
+       setStatusMessage(`Paired ${matchedDevice.deviceId}`)
+       return
+     }
+   }, [devices, isAddPanelOpen, qrStatus])
+
+  async function handleDisconnect() {
+    const pairedDeviceId = pairedDevice?.deviceId || deviceId
+    setPairedDevice(null)
+    setDeviceId('')
+    setDeviceName('')
     setStatusMessage('')
-    if (!qr || !deviceId) {
-      setStatusMessage('Device ID is required')
-      return
-    }
+    knownDeviceIdsRef.current = new Set(devices.map(d => d.deviceId))
+    currentTokenRef.current = null
+
+    setQrStatus('loading')
     try {
-      const res = await fetch('/api/pair/confirm', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: qr.token, deviceId, deviceName: deviceName || deviceId }),
-      })
+      if (pairedDeviceId) {
+        await fetch('/api/pair/unpair', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ deviceId: pairedDeviceId }),
+        })
+      }
+    } catch (e) {
+      console.error('Unpair failed', e)
+    }
+
+    try {
+      const res = await fetch('/api/pair/qr')
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Pairing failed')
-      setStatusMessage(`Paired ${data.deviceId}`)
-      setDeviceId('')
-      setDeviceName('')
-      const res2 = await fetch('/api/pair/qr')
-      const data2 = await res2.json()
-      if (data2 && data2.qrDataUrl) setQr(data2)
-    } catch (error) {
-      setStatusMessage(error.message)
-      const res2 = await fetch('/api/pair/qr')
-      const data2 = await res2.json()
-      if (data2 && data2.qrDataUrl) setQr(data2)
+      if (data && data.qrDataUrl) {
+        setQr(data)
+        currentTokenRef.current = data.token
+        setQrStatus('ready')
+      } else {
+        setQrStatus('error')
+      }
+    } catch (e) {
+      setQrStatus('error')
     }
   }
+
+  function handleCancel() {
+    handleDisconnect()
+  }
+
+  async function handleRetry() {
+    setQrStatus('loading')
+    try {
+      const res = await fetch('/api/pair/qr')
+      const data = await res.json()
+      if (data && data.qrDataUrl) {
+        setQr(data)
+        currentTokenRef.current = data.token
+        knownDeviceIdsRef.current = new Set(devices.map(d => d.deviceId))
+        setQrStatus('ready')
+      } else {
+        setQrStatus('error')
+      }
+    } catch (e) {
+      setQrStatus('error')
+    }
+  }
+
+  const qrDisabled = qrStatus === 'connecting' || qrStatus === 'connected'
 
   return (
     <section className="devices-page">
@@ -104,7 +187,7 @@ export default function DevicesPage({ devices: initialDevices }) {
                       <td><b>{device.deviceName}</b></td>
                       <td>{formatDateTime(device.registeredAt)}</td>
                       <td>{formatDateTime(device.lastSeenAt)}</td>
-                      <td><span className={`status-badge ${isOnline(device.lastSeenAt) ? 'online' : 'offline'}`}>{isOnline(device.lastSeenAt) ? 'Online' : 'Offline'}</span></td>
+                      <td><span className={`status-badge ${getDeviceStatus(device).toLowerCase()}`}>{getDeviceStatus(device)}</span></td>
                     </tr>
                   ))
                 )}
@@ -114,9 +197,59 @@ export default function DevicesPage({ devices: initialDevices }) {
         </div>
         <div className="devices-add-panel">
           <div className="qr-pair-body">
-            <div className="camera-placeholder">
+            <div
+              className="camera-placeholder"
+              aria-live="polite"
+              aria-label={qrStatus === 'connected' ? 'Device connected' : qrStatus === 'connecting' ? 'Waiting for device' : 'QR pairing'}
+            >
               {qr && qr.qrDataUrl ? (
-                <img src={qr.qrDataUrl} alt="Pairing QR" />
+                <div style={{ position: 'relative', width: '100%' }}>
+                  <img
+                    src={qr.qrDataUrl}
+                    alt="Pairing QR"
+                    style={{
+                      display: 'block',
+                      width: '100%',
+                      height: 'auto',
+                      borderRadius: '20px',
+                      opacity: qrDisabled ? 0.25 : 1,
+                      transition: 'opacity 0.3s ease',
+                    }}
+                  />
+                  {(qrStatus === 'connecting' || qrStatus === 'connected') && (
+                    <div style={{
+                      position: 'absolute',
+                      inset: 0,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 14,
+                      borderRadius: '20px',
+                    }}>
+                      {qrStatus === 'connecting' && (
+                        <>
+                          <div className="qr-spinner" />
+                          <span className="qr-overlay-label">Waiting for device...</span>
+                        </>
+                      )}
+                      {qrStatus === 'connected' && (
+                        <>
+                          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                            <polyline points="22 4 12 14.01 9 11.01" />
+                          </svg>
+                          <span className="qr-overlay-label">Device connected</span>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ) : qrStatus === 'error' ? (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+                  <span className="camera-label" style={{ color: 'var(--color-danger)' }}>Failed to load QR</span>
+                  <button className="pair-retry-button" onClick={handleRetry}>Retry</button>
+                </div>
               ) : (
                 <span className="camera-label">Generating QR...</span>
               )}
@@ -124,15 +257,38 @@ export default function DevicesPage({ devices: initialDevices }) {
             <div className="qr-pair-form">
               <div className="form-field">
                 <label className="form-label">Device ID</label>
-                <input className="form-input" value={deviceId} onChange={(e) => setDeviceId(e.target.value)} placeholder="Device ID" />
+                <input
+                  className="form-input"
+                  value={deviceId}
+                  onChange={(e) => setDeviceId(e.target.value)}
+                  placeholder="Device ID"
+                  readOnly
+                  disabled={qrDisabled}
+                />
               </div>
               <div className="form-field">
                 <label className="form-label">Device Name</label>
-                <input className="form-input" value={deviceName} onChange={(e) => setDeviceName(e.target.value)} placeholder="Optional name" />
+                <input
+                  className="form-input"
+                  value={deviceName}
+                  onChange={(e) => setDeviceName(e.target.value)}
+                  placeholder="Device Name"
+                  readOnly
+                  disabled={qrDisabled}
+                />
               </div>
               {statusMessage && <p className="qr-status">{statusMessage}</p>}
             </div>
-            <button className="pair-confirm-button" onClick={confirmPairing} disabled={!qr || !deviceId}>Confirm Pairing</button>
+            {qrStatus === 'connected' && (
+              <button className="pair-disconnect-button" onClick={handleDisconnect}>
+                Disconnect
+              </button>
+            )}
+            {qrStatus === 'connecting' && (
+              <button className="pair-cancel-button" onClick={handleCancel}>
+                Cancel
+              </button>
+            )}
           </div>
         </div>
       </div>

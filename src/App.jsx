@@ -55,7 +55,12 @@ export default function App() {
       } catch (_) {}
     }
     loadDevices()
-    return () => { cancelled = true }
+    const events = new EventSource('/api/devices/events')
+    events.addEventListener('devices-updated', loadDevices)
+    return () => {
+      cancelled = true
+      events.close()
+    }
   }, [])
 
   useEffect(() => {
@@ -69,7 +74,12 @@ export default function App() {
       } catch (_) {}
     }
     loadSessions()
-    return () => { cancelled = true }
+    const events = new EventSource('/api/sessions/events')
+    events.addEventListener('sessions-updated', loadSessions)
+    return () => {
+      cancelled = true
+      events.close()
+    }
   }, [])
 
   useEffect(() => {
