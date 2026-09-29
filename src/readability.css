@@ -513,7 +513,8 @@
 .stability-card > .chart-legend span { display: inline-flex; align-items: center; gap: 7px; padding: 0; border: 0; background: none; font-size: 11px; }
 .stability-card > .chart-legend i { width: 20px; height: 4px; border-radius: 999px; }
 .stability-card > .chart-legend .low-stability-dot { background: var(--color-danger); }
-.stability-card > .chart-legend .moderate-stability-dot { background: var(--color-accent-light); }
+.stability-card > .chart-legend .moderate-stability-dot { background: var(--color-warning); }
+.stability-card > .chart-legend .high-stability-dot { background: var(--color-accent-light); }
 .chart-legend { display: none; }
 .chart-legend span { padding: 6px 9px; border: 1px solid var(--color-border-medium-subtle); border-radius: 999px; background: var(--color-overlay-dark); font-size: 11px; }
 .chart-legend i { width: 18px; height: 5px; }
