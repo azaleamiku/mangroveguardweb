@@ -7,7 +7,7 @@ import CalendarPage from './pages/CalendarPage.jsx'
 import FlagPage from './pages/FlagPage.jsx'
 import DevicesPage from './pages/DevicesPage.jsx'
 import SessionsPage from './pages/SessionsPage.jsx'
-import DeletionLogPage from './pages/DeletionLogPage.jsx'
+
 import { fallbackLogs } from './utils.js'
 
 export default function App() {
@@ -16,7 +16,6 @@ export default function App() {
   const [logsConnected, setLogsConnected] = useState(false)
   const [devices, setDevices] = useState([])
   const [sessions, setSessions] = useState([])
-  const [deletionHistory, setDeletionHistory] = useState([])
 
   useEffect(() => {
     let cancelled = false
@@ -82,20 +81,6 @@ export default function App() {
     }
   }, [])
 
-  useEffect(() => {
-    let cancelled = false
-    async function loadDeletionHistory() {
-      try {
-        const response = await fetch('/api/deletion-history')
-        if (!response.ok) return
-        const data = await response.json()
-        if (!cancelled) setDeletionHistory(data)
-      } catch (_) {}
-    }
-    loadDeletionHistory()
-    return () => { cancelled = true }
-  }, [])
-
   const renderPage = () => {
     switch (activePage) {
       case 'dashboard':
@@ -110,8 +95,6 @@ export default function App() {
         return <DevicesPage devices={devices} />
       case 'sessions':
         return <SessionsPage sessions={sessions} logs={logs} />
-      case 'deletion-log':
-        return <DeletionLogPage history={deletionHistory} />
       default:
         return <DashboardPage logs={logs} />
     }

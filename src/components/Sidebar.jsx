@@ -9,7 +9,6 @@ const primaryNav = [
 const secondaryNav = [
   { id: 'devices', label: 'Devices', icon: 'devices', page: 'devices' },
   { id: 'sessions', label: 'Sessions', icon: 'sessions', page: 'sessions' },
-  { id: 'deleted-scans', label: 'Deleted scans', icon: 'trash', page: 'deletion-log' },
 ]
 
 export default function Sidebar({ activePage, onNavigate }) {
