@@ -20,6 +20,10 @@ export async function saveScanImage(dataDirectory, scanId, imageBase64) {
 export async function toScan(db, dataDirectory, payload) {
   const source = payload || {}
   const treeId = typeof source.treeId === 'string' ? source.treeId.trim() : typeof source.tree_id === 'string' ? source.tree_id.trim() : ''
+  const validTreeId = /^MG-[a-z0-9]+-\d{6}(-\d+)?$/.test(treeId)
+  if (!validTreeId) {
+    debugPrint('Warning: non-standard treeId format received: ' + treeId)
+  }
   const scannedAt = new Date(source.scannedAt || source.scanned_at || '')
   const assessment = typeof source.assessment === 'string'
     ? source.assessment.toLowerCase()

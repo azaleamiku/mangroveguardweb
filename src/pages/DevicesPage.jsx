@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
 import { formatDateTime, isOnline } from '../utils.js'
+import Icon from '../components/Icon.jsx'
 
 function getDeviceStatus(device) {
   if (!device.lastPairedToken) return 'Unpaired'
@@ -180,7 +181,12 @@ export default function DevicesPage({ devices: initialDevices }) {
               </thead>
               <tbody>
                 {devices.length === 0 ? (
-                  <tr><td colSpan="4" className="empty-state">No devices registered yet.</td></tr>
+                  <tr>                  <td colSpan="4" className="empty-state">
+                    <div className="empty-state-inner">
+                      <Icon name="devices" />
+                      <span>No devices registered. Use the QR pairing panel to add one.</span>
+                    </div>
+                  </td></tr>
                 ) : (
                   devices.map((device) => (
                     <tr key={device.deviceId}>

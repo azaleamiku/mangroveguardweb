@@ -1,5 +1,6 @@
 import { useMemo, useEffect, useState } from 'react'
 import { formatDateTime } from '../utils.js'
+import Icon from '../components/Icon.jsx'
 
 export default function SessionsPage({ sessions: initialSessions, logs }) {
   const [sessions, setSessions] = useState(initialSessions)
@@ -43,7 +44,12 @@ export default function SessionsPage({ sessions: initialSessions, logs }) {
           </thead>
           <tbody>
             {sessionsWithCounts.length === 0 ? (
-              <tr><td colSpan="5" className="empty-state">No sessions recorded yet.</td></tr>
+              <tr><td colSpan="5" className="empty-state">
+                <div className="empty-state-inner">
+                  <Icon name="sessions" />
+                  <span>Complete a field session to see logs.</span>
+                </div>
+              </td></tr>
             ) : (
               sessionsWithCounts.map((session) => (
                 <tr key={session.sessionId}>

@@ -38,7 +38,6 @@
   position: sticky;
   top: 0;
   z-index: 1;
-  background: var(--color-bg-deepest);
   min-height: 30px;
   border-top: 0;
   color: var(--color-accent);

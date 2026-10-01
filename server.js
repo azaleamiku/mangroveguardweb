@@ -3,7 +3,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import Database from 'better-sqlite3'
 import { mkdir } from 'node:fs/promises'
-import { initDb } from './db/migrate.js'
+import { initDb, seedDatabase } from './db/migrate.js'
 import { generateStyledQrDataUrl } from './services/qr.js'
 import { registerScanRoutes } from './routes/scans.js'
 import { registerDeviceRoutes } from './routes/devices.js'
@@ -29,6 +29,7 @@ await mkdir(dataDirectory, { recursive: true })
 const db = new Database(dbPath)
 
 initDb(db)
+//seedDatabase(db)
 
 registerScanRoutes(app, db, dataDirectory)
 registerDeviceRoutes(app, db)
