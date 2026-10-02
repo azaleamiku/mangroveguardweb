@@ -29,7 +29,7 @@ await mkdir(dataDirectory, { recursive: true })
 const db = new Database(dbPath)
 
 initDb(db)
-seedDatabase(db)
+//seedDatabase(db)
 
 registerScanRoutes(app, db, dataDirectory)
 registerDeviceRoutes(app, db)
