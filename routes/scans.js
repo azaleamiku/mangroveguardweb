@@ -7,7 +7,7 @@ const logger = createLogger('scans')
 export function registerScanRoutes(app, db, dataDirectory) {
   app.get('/api/scans', (_request, response, next) => {
     try {
-      const scans = db.prepare('SELECT id, treeId, scannedAt, assessment, imagePath as imageUrl, sessionId, deviceId, serverReceived FROM scans ORDER BY scannedAt DESC').all()
+      const scans = db.prepare('SELECT id, treeId, scannedAt, assessment, imagePath as imageUrl, sessionId, scans.deviceId, serverReceived, devices.deviceName FROM scans LEFT JOIN devices ON scans.deviceId = devices.deviceId ORDER BY scannedAt DESC').all()
       response.json(scans)
     } catch (error) { next(error) }
   })
@@ -28,9 +28,11 @@ export function registerScanRoutes(app, db, dataDirectory) {
     try {
       const body = request.body || {}
       const scans = Array.isArray(body.scans) ? body.scans : []
+      const batchDeviceId = typeof body.deviceId === 'string' ? body.deviceId.trim() : typeof body.device_id === 'string' ? body.device_id.trim() : null
       const results = []
       for (const payload of scans) {
-        const scan = await toScan(db, dataDirectory, payload || {})
+        const merged = batchDeviceId && !payload.deviceId && !payload.device_id ? { ...payload, deviceId: batchDeviceId } : payload
+        const scan = await toScan(db, dataDirectory, merged || {})
         if (!scan) continue
         const insert = db.prepare('INSERT INTO scans (id, treeId, scannedAt, assessment, imagePath, sessionId, deviceId, serverReceived) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
         insert.run(scan.id, scan.treeId, scan.scannedAt, scan.assessment, scan.imageUrl || '', scan.sessionId, scan.deviceId, scan.serverReceived)

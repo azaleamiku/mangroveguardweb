@@ -22,7 +22,7 @@ export async function toScan(db, dataDirectory, payload) {
   const treeId = typeof source.treeId === 'string' ? source.treeId.trim() : typeof source.tree_id === 'string' ? source.tree_id.trim() : ''
   const validTreeId = /^MG-[a-z0-9]+-\d{6}(-\d+)?$/.test(treeId)
   if (!validTreeId) {
-    debugPrint('Warning: non-standard treeId format received: ' + treeId)
+    logger.debug('Warning: non-standard treeId format received: ' + treeId)
   }
   const scannedAt = new Date(source.scannedAt || source.scanned_at || '')
   const assessment = typeof source.assessment === 'string'
@@ -33,6 +33,15 @@ export async function toScan(db, dataDirectory, payload) {
   const imageBase64 = typeof source.imageBase64 === 'string' ? source.imageBase64.trim() : ''
   const deviceId = typeof source.deviceId === 'string' ? source.deviceId.trim() : typeof source.device_id === 'string' ? source.device_id.trim() : null
   const sessionId = typeof source.sessionId === 'string' ? source.sessionId.trim() : typeof source.session_id === 'string' ? source.session_id.trim() : null
+  if (deviceId === '') deviceId = null
+  if (sessionId === '') sessionId = null
+
+  let deviceName = null
+  if (deviceId) {
+    const deviceRow = db.prepare('SELECT deviceName FROM devices WHERE deviceId = ?').get(deviceId)
+    deviceName = deviceRow ? deviceRow.deviceName : null
+  }
+
   if (!treeId || Number.isNaN(scannedAt.valueOf()) || !['high', 'moderate', 'low'].includes(assessment)) {
     return null
   }
@@ -58,6 +67,7 @@ export async function toScan(db, dataDirectory, payload) {
     ...(imageUrl ? { imageUrl } : {}),
     sessionId: sessionId,
     deviceId,
+    deviceName,
     serverReceived,
   }
 }

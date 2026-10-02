@@ -60,7 +60,7 @@
 
 .assessment.high { background: var(--color-accent); color: var(--color-bg-deepest); }
 .assessment.moderate { background: var(--color-warning); color: var(--color-bg-deepest); }
-.assessment.assessment-low { background: var(--color-danger); color: var(--color-bg-deepest); }
+.assessment.low { background: var(--color-danger); color: var(--color-bg-deepest); }
 
 @media (max-width: 520px) {
   .log-row { grid-template-columns: .9fr 1.2fr .8fr; gap: 5px; font-size: 10px; }

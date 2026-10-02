@@ -4,7 +4,6 @@ import Header from './components/Header.jsx'
 import DashboardPage from './pages/DashboardPage.jsx'
 import LogsPage from './pages/LogsPage.jsx'
 import CalendarPage from './pages/CalendarPage.jsx'
-import FlagPage from './pages/FlagPage.jsx'
 import DevicesPage from './pages/DevicesPage.jsx'
 import SessionsPage from './pages/SessionsPage.jsx'
 
@@ -89,8 +88,6 @@ export default function App() {
         return <LogsPage logs={logs} logsConnected={logsConnected} />
       case 'calendar':
         return <CalendarPage logs={logs} />
-      case 'flag':
-        return <FlagPage />
       case 'devices':
         return <DevicesPage devices={devices} />
       case 'sessions':

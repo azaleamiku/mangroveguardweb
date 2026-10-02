@@ -68,6 +68,12 @@ export function initDb(db) {
   db.pragma('journal_mode = WAL')
   db.exec('CREATE INDEX IF NOT EXISTS idx_devices_lastSeenAt ON devices(lastSeenAt DESC)')
   db.exec('CREATE INDEX IF NOT EXISTS idx_sessions_startedAt ON sessions(startedAt DESC)')
+
+  try {
+    const backfill = db.prepare('UPDATE scans SET deviceId = (SELECT sessions.deviceId FROM sessions WHERE sessions.sessionId = scans.sessionId) WHERE scans.deviceId IS NULL OR scans.deviceId = ""')
+    const updated = backfill.run().changes
+    if (updated > 0) logger.info('Backfilled deviceId for scans', { updated })
+  } catch (_) {}
 }
 
 export function seedDatabase(db) {
@@ -80,7 +86,7 @@ export function seedDatabase(db) {
     { value: 'low', weight: 0.2 },
   ]
   const now = new Date()
-  const treeIds = Array.from({ length: 40 }, (_, i) => `MNG-${String(i + 1).padStart(3, '0')}`)
+  const treeIds = Array.from({ length: 40 }, (_, i) => `MG-${String(i + 1).padStart(6, '0')}`)
   const recordsPerMonth = 84
   const records = []
 
