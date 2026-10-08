@@ -20,7 +20,17 @@ export function registerScanRoutes(app, db, dataDirectory) {
     })
     response.write('retry: 3000\n\n')
     logSubscribers.add(response)
-    request.on('close', () => logSubscribers.delete(response))
+    const heartbeatInterval = setInterval(() => {
+      try {
+        response.write(': heartbeat\n\n')
+      } catch (_) {
+        clearInterval(heartbeatInterval)
+      }
+    }, parseInt(process.env.SSE_HEARTBEAT_INTERVAL_MS, 10) || 15000)
+    request.on('close', () => {
+      clearInterval(heartbeatInterval)
+      logSubscribers.delete(response)
+    })
   })
 
   app.post('/api/scans/batch', async (request, response, next) => {
@@ -34,7 +44,7 @@ export function registerScanRoutes(app, db, dataDirectory) {
         const merged = batchDeviceId && !payload.deviceId && !payload.device_id ? { ...payload, deviceId: batchDeviceId } : payload
         const scan = await toScan(db, dataDirectory, merged || {})
         if (!scan) continue
-        const insert = db.prepare('INSERT INTO scans (id, treeId, scannedAt, assessment, imagePath, sessionId, deviceId, serverReceived) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+const insert = db.prepare('INSERT OR IGNORE INTO scans (id, treeId, scannedAt, assessment, imagePath, sessionId, deviceId, serverReceived) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
         insert.run(scan.id, scan.treeId, scan.scannedAt, scan.assessment, scan.imageUrl || '', scan.sessionId, scan.deviceId, scan.serverReceived)
         results.push(scan)
       }
@@ -48,7 +58,7 @@ export function registerScanRoutes(app, db, dataDirectory) {
       const scan = await toScan(db, dataDirectory, request.body || {})
       if (!scan) return response.status(400).json({ error: 'treeId, scannedAt, and a valid assessment are required.', code: 'VALIDATION_ERROR' })
 
-      const insert = db.prepare('INSERT INTO scans (id, treeId, scannedAt, assessment, imagePath, sessionId, deviceId, serverReceived) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+      const insert = db.prepare('INSERT OR IGNORE INTO scans (id, treeId, scannedAt, assessment, imagePath, sessionId, deviceId, serverReceived) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
       insert.run(scan.id, scan.treeId, scan.scannedAt, scan.assessment, scan.imageUrl || '', scan.sessionId, scan.deviceId, scan.serverReceived)
 
       notifyLogSubscribers()

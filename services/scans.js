@@ -52,7 +52,12 @@ export async function toScan(db, dataDirectory, payload) {
   if (!treeId || Number.isNaN(scannedAt.valueOf()) || !['high', 'moderate', 'low'].includes(assessment)) {
     return null
   }
-  const id = crypto.randomUUID()
+  const clientId = typeof source.scan_id === 'string' && source.scan_id
+    ? source.scan_id
+    : typeof source.id === 'string' && source.id
+      ? source.id
+      : null
+  const id = clientId ?? crypto.randomUUID()
   const imageUrl = await saveScanImage(dataDirectory, id, imageBase64)
   const serverReceived = new Date().toISOString()
 

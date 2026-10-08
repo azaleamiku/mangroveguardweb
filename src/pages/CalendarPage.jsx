@@ -7,6 +7,7 @@ export default function CalendarPage({ logs }) {
   const [statusFilter, setStatusFilter] = useState(null)
 
   const today = useMemo(() => new Date(), [])
+  const currentYear = today.getFullYear()
   const currentMonth = today.getMonth()
   const isCurrentMonth = selectedMonth === currentMonth
 
@@ -23,8 +24,8 @@ export default function CalendarPage({ logs }) {
     return byDay
   }, [logs])
 
-  const daysInMonth = new Date(2026, selectedMonth + 1, 0).getDate()
-  const leadingDays = (new Date(2026, selectedMonth, 1).getDay() + 6) % 7
+  const daysInMonth = new Date(currentYear, selectedMonth + 1, 0).getDate()
+  const leadingDays = (new Date(currentYear, selectedMonth, 1).getDay() + 6) % 7
   const trailingDays = 42 - leadingDays - daysInMonth
 
   const goToPreviousMonth = () => setSelectedMonth((month) => (month - 1 + 12) % 12)
@@ -32,7 +33,7 @@ export default function CalendarPage({ logs }) {
   const goToToday = () => setSelectedMonth(currentMonth)
 
   const handleDayClick = (day) => {
-    const clickedDate = new Date(2026, selectedMonth, day)
+    const clickedDate = new Date(currentYear, selectedMonth, day)
     setSelectedDate(clickedDate)
     setDeviceFilter(null)
   }
@@ -195,7 +196,7 @@ export default function CalendarPage({ logs }) {
             <path d="m15 18-6-6 6-6" />
           </svg>
         </button>
-        <span className="month-nav-title">{months[selectedMonth]} 2026</span>
+        <span className="month-nav-title">{months[selectedMonth]} {currentYear}</span>
         <button className="month-nav-button" type="button" onClick={goToNextMonth} aria-label="Next month">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <path d="m9 18 6-6-6-6" />
@@ -226,7 +227,7 @@ export default function CalendarPage({ logs }) {
       </div>
       {Array.from({ length: leadingDays }, (_, index) => <i className="calendar-empty" key={`leading-${index}`} />)}
       {Array.from({ length: daysInMonth }, (_, index) => {
-        const date = new Date(2026, selectedMonth, index + 1)
+        const date = new Date(currentYear, selectedMonth, index + 1)
         const scans = activity.get(getDayKey(date)) || []
         const level = Math.min(4, scans.length + (scans.some((scan) => scan.assessment === 'high') ? 1 : 0))
         return (

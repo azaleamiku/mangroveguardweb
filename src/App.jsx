@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Sidebar from './components/Sidebar.jsx'
 import Header from './components/Header.jsx'
 import DashboardPage from './pages/DashboardPage.jsx'
@@ -15,20 +15,39 @@ export default function App() {
   const [logsConnected, setLogsConnected] = useState(false)
   const [devices, setDevices] = useState([])
   const [sessions, setSessions] = useState([])
+  const loadingLogsRef = useRef(false)
 
   useEffect(() => {
     let cancelled = false
     async function loadLogs() {
+      if (loadingLogsRef.current) return
+      loadingLogsRef.current = true
       try {
-        const response = await fetch('/api/scans')
-        if (!response.ok) throw new Error('Could not load observation logs')
+        const controller = new AbortController()
+        const timeout = setTimeout(() => controller.abort(), 5000)
+        const response = await fetch('/api/scans', { signal: controller.signal })
+        clearTimeout(timeout)
+        if (!response.ok) {
+          if (response.status === 500) {
+            console.warn('Server error loading logs, keeping connection state')
+            loadingLogsRef.current = false
+            return
+          }
+          throw new Error('Could not load observation logs')
+        }
         const scans = await response.json()
         if (!cancelled) {
           setLogs(scans)
           setLogsConnected(true)
         }
-      } catch (_) {
-        if (!cancelled) setLogsConnected(false)
+      } catch (error) {
+        if (!cancelled) {
+          if (error.name === 'AbortError' || error instanceof TypeError) {
+            setLogsConnected(false)
+          }
+        }
+      } finally {
+        loadingLogsRef.current = false
       }
     }
     loadLogs()

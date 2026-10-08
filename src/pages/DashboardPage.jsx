@@ -26,6 +26,7 @@ function MonitoringStats({ logs }) {
 function YearActivity({ selectedMonth, setSelectedMonth, logs }) {
   const [monthMenuOpen, setMonthMenuOpen] = useState(false)
   const pickerRef = useRef(null)
+  const year = new Date().getFullYear()
   const activityByDay = useMemo(() => {
     const activity = new Map()
     logs.forEach(({ scannedAt, assessment }) => {
@@ -40,9 +41,9 @@ function YearActivity({ selectedMonth, setSelectedMonth, logs }) {
   }, [logs])
 
   const days = useMemo(() => Array.from(
-    { length: new Date(Date.UTC(2026, selectedMonth + 1, 0)).getUTCDate() },
+    { length: new Date(Date.UTC(year, selectedMonth + 1, 0)).getUTCDate() },
     (_, index) => {
-      const date = new Date(2026, selectedMonth, index + 1)
+      const date = new Date(year, selectedMonth, index + 1)
       const entries = activityByDay.get(getDayKey(date)) || []
       const level = entries.length === 0
         ? 0
@@ -81,7 +82,7 @@ function YearActivity({ selectedMonth, setSelectedMonth, logs }) {
       <label id="activity-month-label">View month</label>
       <div className="month-picker relative" ref={pickerRef}>
         <button className="month-picker-button" type="button" aria-labelledby="activity-month-label month-picker-value" aria-expanded={monthMenuOpen} aria-haspopup="listbox" onClick={() => setMonthMenuOpen((open) => !open)}>
-          <span id="month-picker-value">{months[selectedMonth]} 2026</span>
+          <span id="month-picker-value">{months[selectedMonth]} {year}</span>
           <span className="month-picker-chevron" aria-hidden="true">⌄</span>
         </button>
         {monthMenuOpen && (
@@ -95,7 +96,7 @@ function YearActivity({ selectedMonth, setSelectedMonth, logs }) {
                 key={month}
                 onClick={() => { setSelectedMonth(index); closeMenu() }}
               >
-                {month} 2026
+                {month} {year}
               </button>
             ))}
           </div>
@@ -107,7 +108,7 @@ function YearActivity({ selectedMonth, setSelectedMonth, logs }) {
         <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
       </div>
       <div className="daily-grid month-days">
-        {Array.from({ length: (new Date(2026, selectedMonth, 1).getDay() + 6) % 7 }, (_, index) => <i key={index} />)}
+        {Array.from({ length: (new Date(year, selectedMonth, 1).getDay() + 6) % 7 }, (_, index) => <i key={index} />)}
         {days.map(({ date, level, scans }) => (
           <button
             className={`activity-day level-${level}`}

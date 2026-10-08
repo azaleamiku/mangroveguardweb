@@ -19,7 +19,17 @@ export function registerSessionRoutes(app, db) {
     })
     response.write('retry: 3000\n\n')
     sessionSubscribers.add(response)
-    request.on('close', () => sessionSubscribers.delete(response))
+    const heartbeatInterval = setInterval(() => {
+      try {
+        response.write(': heartbeat\n\n')
+      } catch (_) {
+        clearInterval(heartbeatInterval)
+      }
+    }, parseInt(process.env.SSE_HEARTBEAT_INTERVAL_MS, 10) || 15000)
+    request.on('close', () => {
+      clearInterval(heartbeatInterval)
+      sessionSubscribers.delete(response)
+    })
   })
 
   app.post('/api/sessions', (request, response, next) => {

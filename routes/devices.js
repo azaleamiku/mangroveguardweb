@@ -19,7 +19,17 @@ export function registerDeviceRoutes(app, db) {
     })
     response.write('retry: 3000\n\n')
     deviceSubscribers.add(response)
-    request.on('close', () => deviceSubscribers.delete(response))
+    const heartbeatInterval = setInterval(() => {
+      try {
+        response.write(': heartbeat\n\n')
+      } catch (_) {
+        clearInterval(heartbeatInterval)
+      }
+    }, parseInt(process.env.SSE_HEARTBEAT_INTERVAL_MS, 10) || 15000)
+    request.on('close', () => {
+      clearInterval(heartbeatInterval)
+      deviceSubscribers.delete(response)
+    })
   })
 
   app.post('/api/devices', (request, response, next) => {
