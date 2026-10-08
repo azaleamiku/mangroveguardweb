@@ -2,8 +2,8 @@ import { useMemo, useEffect, useState } from 'react'
 import { formatLogDate, formatLogTime, formatDateTime } from '../utils.js'
 import Icon from '../components/Icon.jsx'
 
-function SortIcon({ column, sortColumn, sortDirection, statusFilter }) {
-  const isActive = sortColumn === column || (column === 'assessment' && statusFilter)
+function SortIcon({ column, sortColumn, sortDirection }) {
+  const isActive = sortColumn === column
 
   if (!isActive || sortDirection === null) {
     return (
@@ -27,18 +27,11 @@ function SortIcon({ column, sortColumn, sortDirection, statusFilter }) {
 export default function LogsPage({ logs, logsConnected }) {
   const [sortColumn, setSortColumn] = useState('scannedAt')
   const [sortDirection, setSortDirection] = useState('desc')
-  const [statusFilter, setStatusFilter] = useState(null)
   const [modalScanId, setModalScanId] = useState(null)
   const [isZoomed, setIsZoomed] = useState(false)
 
   const processedLogs = useMemo(() => {
     let result = [...logs]
-
-    if (statusFilter) {
-      result = result.filter((log) => String(log.assessment || log.status).toLowerCase() === statusFilter)
-      result.sort((a, b) => new Date(b.scannedAt).getTime() - new Date(a.scannedAt).getTime())
-      return result
-    }
 
     if (sortColumn && sortDirection) {
       result.sort((a, b) => {
@@ -48,17 +41,35 @@ export default function LogsPage({ logs, logsConnected }) {
           aValue = new Date(aValue).getTime()
           bValue = new Date(bValue).getTime()
         } else if (sortColumn === 'treeId') {
-          aValue = aValue.toLowerCase()
-          bValue = bValue.toLowerCase()
+          aValue = String(aValue).toLowerCase()
+          bValue = String(bValue).toLowerCase()
+          const cmp = aValue.localeCompare(bValue)
+          if (cmp !== 0) return sortDirection === 'asc' ? cmp : -cmp
+          const aTime = new Date(a.scannedAt).getTime()
+          const bTime = new Date(b.scannedAt).getTime()
+          return sortDirection === 'asc' ? aTime - bTime : bTime - aTime
+        } else if (sortColumn === 'assessment') {
+          const order = { high: 0, moderate: 1, low: 2 }
+          const aIdx = order[String(aValue || '').toLowerCase()]
+          const bIdx = order[String(bValue || '').toLowerCase()]
+          const aKey = Number.isFinite(aIdx) ? aIdx : 3
+          const bKey = Number.isFinite(bIdx) ? bIdx : 3
+          const cmp = aKey - bKey
+          if (cmp !== 0) return sortDirection === 'asc' ? cmp : -cmp
+          const aTime = new Date(a.scannedAt).getTime()
+          const bTime = new Date(b.scannedAt).getTime()
+          return sortDirection === 'asc' ? aTime - bTime : bTime - aTime
         }
         if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1
         if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1
-        return 0
+        const aTime = new Date(a.scannedAt).getTime()
+        const bTime = new Date(b.scannedAt).getTime()
+        return sortDirection === 'asc' ? aTime - bTime : bTime - aTime
       })
     }
 
     return result
-  }, [logs, statusFilter, sortColumn, sortDirection])
+  }, [logs, sortColumn, sortDirection])
 
   const modalScan = useMemo(() => {
     if (modalScanId === null) return null
@@ -100,19 +111,8 @@ export default function LogsPage({ logs, logsConnected }) {
   }, [modalScan])
 
   const handleSort = (column) => {
-    if (column === 'assessment') {
-      setStatusFilter((prev) => {
-        if (prev === null) return 'high'
-        if (prev === 'high') return 'moderate'
-        if (prev === 'moderate') return 'low'
-        return null
-      })
-      return
-    }
-
     if (sortColumn === column) {
       if (sortDirection === 'asc') setSortDirection('desc')
-      else if (sortDirection === 'desc') setSortDirection(null)
       else setSortDirection('asc')
     } else {
       setSortColumn(column)
@@ -169,7 +169,7 @@ export default function LogsPage({ logs, logsConnected }) {
             <th>
               <button type="button" className="sortable-header" onClick={() => handleSort('assessment')}>
                 <span>Mangrove Status</span>
-                <SortIcon column="assessment" sortColumn={sortColumn} sortDirection={sortDirection} statusFilter={statusFilter} />
+                <SortIcon column="assessment" sortColumn={sortColumn} sortDirection={sortDirection} />
               </button>
             </th>
             <th>
@@ -177,53 +177,57 @@ export default function LogsPage({ logs, logsConnected }) {
             </th>
           </tr>
         </thead>
-        <tbody>
-          {processedLogs.map((scan, index) => {
-            const { id, treeId, scannedAt, assessment, sessionId } = scan
-            const label = `${assessment[0].toUpperCase()}${assessment.slice(1)}`
-            const rowId = id || `${treeId}-${scannedAt}-${index}`
-            const isSelected = rowId === modalScanId
-            return (
-              <tr
-                key={rowId}
-                onClick={() => {
-                  const scan = processedLogs[index]
-                  const rowId = scan.id || `${scan.treeId}-${scan.scannedAt}-${index}`
-                  setModalScanId(rowId)
-                  setIsZoomed(false)
-                }}
-                role="button"
-                tabIndex={0}
-                className={isSelected ? 'selected-row' : ''}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter' || event.key === ' ') {
-                    event.preventDefault()
+      </table>
+      <div className="logs-table-body">
+        <table className="data-table">
+          <tbody>
+            {processedLogs.map((scan, index) => {
+              const { id, treeId, scannedAt, assessment, sessionId } = scan
+              const label = `${assessment[0].toUpperCase()}${assessment.slice(1)}`
+              const rowId = id || `${treeId}-${scannedAt}-${index}`
+              const isSelected = rowId === modalScanId
+              return (
+                <tr
+                  key={rowId}
+                  onClick={() => {
                     const scan = processedLogs[index]
                     const rowId = scan.id || `${scan.treeId}-${scan.scannedAt}-${index}`
                     setModalScanId(rowId)
                     setIsZoomed(false)
-                  }
-                }}
-              >
-                <td><b>{treeId}</b></td>
-                <td><time>{formatLogDate(scannedAt)}</time></td>
-                <td><span className={`assessment ${assessment === 'low' ? 'assessment-low' : assessment}`}>{label}</span></td>
-                <td><span className="session-id">{sessionId || '—'}</span></td>
+                  }}
+                  role="button"
+                  tabIndex={0}
+                  className={isSelected ? 'selected-row' : ''}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault()
+                      const scan = processedLogs[index]
+                      const rowId = scan.id || `${scan.treeId}-${scan.scannedAt}-${index}`
+                      setModalScanId(rowId)
+                      setIsZoomed(false)
+                    }
+                  }}
+                >
+                  <td><b>{treeId}</b></td>
+                  <td><time>{formatLogDate(scannedAt)}</time></td>
+                  <td><span className={`assessment ${assessment === 'low' ? 'assessment-low' : assessment}`}>{label}</span></td>
+                  <td><span className="session-id">{sessionId || '—'}</span></td>
+                </tr>
+              )
+            })}
+            {processedLogs.length === 0 && (
+              <tr>
+                <td colSpan="4" className="empty-state">
+                  <div className="empty-state-inner">
+                    <Icon name="logs" />
+                    <span>No scans yet. Pair a device to start collecting data.</span>
+                  </div>
+                </td>
               </tr>
-            )
-          })}
-          {processedLogs.length === 0 && (
-            <tr>
-              <td colSpan="4" className="empty-state">
-                <div className="empty-state-inner">
-                  <Icon name="logs" />
-                  <span>No scans yet. Pair a device to start collecting data.</span>
-                </div>
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
       {modalScan && (
         <div className="scan-modal-overlay" onClick={() => { setModalScanId(null); setIsZoomed(false) }}>

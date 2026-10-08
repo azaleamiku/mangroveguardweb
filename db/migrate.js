@@ -81,29 +81,53 @@ export function seedDatabase(db) {
   if (count > 0) return
 
   const assessments = [
-    { value: 'high', weight: 0.5 },
-    { value: 'moderate', weight: 0.3 },
-    { value: 'low', weight: 0.2 },
+    { value: 'high', weight: 0.1 },
+    { value: 'moderate', weight: 0.2 },
+    { value: 'low', weight: 0.7 },
   ]
   const now = new Date()
-  const treeIds = Array.from({ length: 40 }, (_, i) => `MG-${String(i + 1).padStart(6, '0')}`)
+  const treeIdChars = 'abcdefghijklmnopqrstuvwxyz0123456789'
+  function randomTreeId() {
+    const suffix = Array.from({ length: 4 }, () => treeIdChars[Math.floor(Math.random() * treeIdChars.length)]).join('')
+    const timePart = now.getHours().toString().padStart(2, '0') +
+      now.getMinutes().toString().padStart(2, '0') +
+      now.getSeconds().toString().padStart(2, '0')
+    return `MG-${suffix}-${timePart}`
+  }
+  const treeIds = Array.from({ length: 40 }, () => randomTreeId())
   const recordsPerMonth = 84
   const records = []
 
   const deviceIds = ['device-001', 'device-002', 'device-003']
-  const devices = deviceIds.map((deviceId, index) => ({
-    deviceId,
-    deviceName: `Field Tablet ${index + 1}`,
-    registeredAt: new Date(now.getTime() - 1000 * 60 * 60 * 24 * 30).toISOString(),
-    lastSeenAt: new Date(now.getTime() - 1000 * 60 * 60 * 24 * (index + 1)).toISOString(),
-  }))
-  const insertDevice = db.prepare('INSERT OR REPLACE INTO devices (deviceId, deviceName, registeredAt, lastSeenAt) VALUES (?, ?, ?, ?)')
+  const devices = deviceIds.map((deviceId, index) => {
+    const isPaired = index < 2
+    const isOnline = index === 0
+    return {
+      deviceId,
+      deviceName: `Field Tablet ${index + 1}`,
+      registeredAt: new Date(now.getTime() - 1000 * 60 * 60 * 24 * 30).toISOString(),
+      lastSeenAt: isOnline ? now.toISOString() : new Date(now.getTime() - 1000 * 60 * 15).toISOString(),
+      lastPairedToken: isPaired ? `token-${deviceId}` : null,
+    }
+  })
+  const insertDevice = db.prepare('INSERT OR REPLACE INTO devices (deviceId, deviceName, registeredAt, lastSeenAt, lastPairedToken) VALUES (?, ?, ?, ?, ?)')
   const deviceTransaction = db.transaction(() => {
     for (const device of devices) {
-      insertDevice.run(device.deviceId, device.deviceName, device.registeredAt, device.lastSeenAt)
+      insertDevice.run(device.deviceId, device.deviceName, device.registeredAt, device.lastSeenAt, device.lastPairedToken)
     }
   })
   deviceTransaction()
+
+  const nowISO = now.toISOString()
+  const insertPairToken = db.prepare("INSERT OR REPLACE INTO pair_tokens (token, created_at, used, device_id) VALUES (?, ?, 1, ?)")
+  const pairTokenTransaction = db.transaction(() => {
+    for (const device of devices) {
+      if (device.lastPairedToken) {
+        insertPairToken.run(device.lastPairedToken, nowISO, device.deviceId)
+      }
+    }
+  })
+  pairTokenTransaction()
 
   const sessionStarts = deviceIds.map((deviceId, index) => new Date(now.getTime() - 1000 * 60 * 60 * 24 * (index + 2)).toISOString())
   const sessions = sessionStarts.map((startedAt, index) => ({

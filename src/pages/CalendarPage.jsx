@@ -4,6 +4,11 @@ import { getDayKey, months, fullMonths, formatLogTime, formatLogDate } from '../
 export default function CalendarPage({ logs }) {
   const [selectedMonth, setSelectedMonth] = useState(() => new Date().getMonth())
   const [selectedDate, setSelectedDate] = useState(null)
+  const [statusFilter, setStatusFilter] = useState(null)
+
+  const today = useMemo(() => new Date(), [])
+  const currentMonth = today.getMonth()
+  const isCurrentMonth = selectedMonth === currentMonth
 
   const activity = useMemo(() => {
     const byDay = new Map()
@@ -24,14 +29,17 @@ export default function CalendarPage({ logs }) {
 
   const goToPreviousMonth = () => setSelectedMonth((month) => (month - 1 + 12) % 12)
   const goToNextMonth = () => setSelectedMonth((month) => (month + 1) % 12)
+  const goToToday = () => setSelectedMonth(currentMonth)
 
   const handleDayClick = (day) => {
     const clickedDate = new Date(2026, selectedMonth, day)
     setSelectedDate(clickedDate)
+    setDeviceFilter(null)
   }
 
   const handleBackToCalendar = () => {
     setSelectedDate(null)
+    setDeviceFilter(null)
   }
 
   const handlePrevDay = () => {
@@ -61,15 +69,6 @@ export default function CalendarPage({ logs }) {
 
   const dayScans = selectedDate ? (activity.get(getDayKey(selectedDate)) || []) : []
   const totalScans = dayScans.length
-  const activeDeviceEntries = useMemo(() => {
-    const entries = new Map()
-    dayScans.forEach((scan) => {
-      if (scan.deviceId) {
-        entries.set(scan.deviceId, { id: scan.deviceId, name: scan.deviceName || scan.deviceId })
-      }
-    })
-    return Array.from(entries.values())
-  }, [dayScans])
 
   const statusCounts = useMemo(() => {
     const counts = { high: 0, moderate: 0, low: 0 }
@@ -85,8 +84,13 @@ export default function CalendarPage({ logs }) {
     return <section className="calendar-page">
       <div className="calendar-page-header">
         <div>
-          <p className="label">FIELD CALENDAR</p>
-          <h2>Scan Activity — {formatLogDate(selectedDate.toISOString())}</h2>
+          <button className="back-link" type="button" onClick={handleBackToCalendar} aria-label="Back to calendar">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="m15 18-6-6 6-6" />
+            </svg>
+            <span>Calendar</span>
+          </button>
+          <h2>Daily Activity Summary</h2>
           <p>{totalScans} scan{totalScans === 1 ? '' : 's'} recorded on this date.</p>
         </div>
         <div className="day-nav">
@@ -107,48 +111,54 @@ export default function CalendarPage({ logs }) {
               <path d="m9 18 6-6-6-6" />
             </svg>
           </button>
-          <button className="month-nav-button" type="button" onClick={handleBackToCalendar} aria-label="Back to calendar">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="m6 12h12" />
-              <path d="m12 6 6 6-6 6" />
-            </svg>
-          </button>
         </div>
       </div>
 
-      <div className="day-summary-metrics">
-        <div className="day-metric-card">
-          <p className="metric-value">{totalScans}</p>
-          <p className="metric-label">Total Scans</p>
+      <div className="day-summary-banner">
+        <div className="day-summary-count">
+          <span className="day-summary-total">{totalScans}</span>
+          <span className="day-summary-label">scans</span>
         </div>
-        <div className="day-distribution">
-          <div className="day-distribution-bar" style={{ display: 'flex', height: 12, borderRadius: 999, overflow: 'hidden', gap: 2 }}>
-            {totalScans > 0 && (
-              <>
-                <div style={{ flex: statusCounts.high, background: 'var(--color-accent)', minWidth: statusCounts.high > 0 ? 8 : 0 }} title={`High: ${statusCounts.high}`} />
-                <div style={{ flex: statusCounts.moderate, background: 'var(--color-warning)', minWidth: statusCounts.moderate > 0 ? 8 : 0 }} title={`Moderate: ${statusCounts.moderate}`} />
-                <div style={{ flex: statusCounts.low, background: 'var(--color-danger)', minWidth: statusCounts.low > 0 ? 8 : 0 }} title={`Low: ${statusCounts.low}`} />
-              </>
-            )}
-          </div>
-          <div className="day-distribution-legend">
-            <span className="day-legend-item"><span className="day-legend-swatch" style={{ background: 'var(--color-accent)' }} />High {statusCounts.high}</span>
-            <span className="day-legend-item"><span className="day-legend-swatch" style={{ background: 'var(--color-warning)' }} />Moderate {statusCounts.moderate}</span>
-            <span className="day-legend-item"><span className="day-legend-swatch" style={{ background: 'var(--color-danger)' }} />Low {statusCounts.low}</span>
-          </div>
+        <div className="day-distribution-bar">
+          {totalScans > 0 && statusCounts.high + statusCounts.moderate + statusCounts.low > 0 && (
+            <>
+              {statusCounts.high > 0 && (
+                <button
+                  type="button"
+                  className={`status-segment high-segment${statusFilter === 'high' ? ' active' : ''}`}
+                  style={{ flex: statusCounts.high }}
+                  onClick={() => setStatusFilter((prev) => (prev === 'high' ? null : 'high'))}
+                  aria-label={`High: ${statusCounts.high} scans`}
+                >
+                  <span className="status-tooltip">{statusCounts.high} High</span>
+                </button>
+              )}
+              {statusCounts.moderate > 0 && (
+                <button
+                  type="button"
+                  className={`status-segment moderate-segment${statusFilter === 'moderate' ? ' active' : ''}`}
+                  style={{ flex: statusCounts.moderate }}
+                  onClick={() => setStatusFilter((prev) => (prev === 'moderate' ? null : 'moderate'))}
+                  aria-label={`Moderate: ${statusCounts.moderate} scans`}
+                >
+                  <span className="status-tooltip">{statusCounts.moderate} Moderate</span>
+                </button>
+              )}
+              {statusCounts.low > 0 && (
+                <button
+                  type="button"
+                  className={`status-segment low-segment${statusFilter === 'low' ? ' active' : ''}`}
+                  style={{ flex: statusCounts.low }}
+                  onClick={() => setStatusFilter((prev) => (prev === 'low' ? null : 'low'))}
+                  aria-label={`Low: ${statusCounts.low} scans`}
+                >
+                  <span className="status-tooltip">{statusCounts.low} Low</span>
+                </button>
+              )}
+            </>
+          )}
         </div>
       </div>
-
-      {activeDeviceEntries.length > 0 && (
-        <div className="day-active-devices">
-          <p className="label">Active Devices</p>
-          <div className="device-badges">
-            {activeDeviceEntries.map((entry) => (
-              <span key={entry.id} className="device-badge">{entry.name}</span>
-            ))}
-          </div>
-        </div>
-      )}
 
       <div className="day-table">
         <div className="day-heading day-row">
@@ -157,10 +167,10 @@ export default function CalendarPage({ logs }) {
           <span>Status</span>
           <span>Device</span>
         </div>
-        {dayScans.length === 0 && (
+        {(statusFilter ? dayScans.filter((scan) => scan.assessment === statusFilter) : dayScans).length === 0 && (
           <div className="empty-logs">No scans recorded on this date.</div>
         )}
-        {dayScans.map((scan, index) => (
+        {(statusFilter ? dayScans.filter((scan) => scan.assessment === statusFilter) : dayScans).map((scan, index) => (
           <div className="day-row" key={`${selectedDayKey}-${scan.scannedAt}-${index}`}>
             <b>{scan.treeId}</b>
             <time>{formatLogTime(scan.scannedAt)}</time>
@@ -191,7 +201,24 @@ export default function CalendarPage({ logs }) {
             <path d="m9 18 6-6-6-6" />
           </svg>
         </button>
+        <button
+          className={`month-nav-button today-button${isCurrentMonth ? ' current' : ''}`}
+          type="button"
+          onClick={goToToday}
+          aria-label="Go to this month"
+        >
+          This Month
+        </button>
       </div>
+    </div>
+    <div className="calendar-legend">
+      <span className="calendar-legend-label">Less</span>
+      <span className="calendar-legend-swatch level-0" />
+      <span className="calendar-legend-swatch level-1" />
+      <span className="calendar-legend-swatch level-2" />
+      <span className="calendar-legend-swatch level-3" />
+      <span className="calendar-legend-swatch level-4" />
+      <span className="calendar-legend-label">More</span>
     </div>
     <div className="calendar-grid large-calendar">
       <div className="calendar-weekdays">

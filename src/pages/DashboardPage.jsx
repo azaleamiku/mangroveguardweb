@@ -158,20 +158,47 @@ function InterventionProtocol({ logs }) {
 
 export default function DashboardPage({ logs }) {
   const [selectedMonth, setSelectedMonth] = useState(() => new Date().getMonth())
+  const [hoverReadout, setHoverReadout] = useState(null)
+  const [hiddenAssessments, setHiddenAssessments] = useState([])
+
+  const toggleAssessment = (assessment) => {
+    setHiddenAssessments((prev) => prev.includes(assessment) ? prev.filter((a) => a !== assessment) : [...prev, assessment])
+  }
 
   return (
     <section className="dashboard-page">
       <section className="top-grid">
         <article className="stability-card">
-          <p className="label">FIELD ASSESSMENT</p>
-          <h2>Mangrove Stability Index</h2>
-          <div className="stability-chart">
-            <StabilityChart logs={logs} />
+          <div className="stability-card-header">
+            <div>
+              <p className="label">FIELD ASSESSMENT</p>
+              <h2>Mangrove Stability Index</h2>
+            </div>
+            <div className="legend chart-legend">
+              <button type="button" className={`chart-legend-item ${hiddenAssessments.includes('low') ? 'hidden' : ''}`} onClick={() => toggleAssessment('low')}>
+                <i className="low-stability-dot" /><span>Low</span>
+              </button>
+              <button type="button" className={`chart-legend-item ${hiddenAssessments.includes('moderate') ? 'hidden' : ''}`} onClick={() => toggleAssessment('moderate')}>
+                <i className="moderate-stability-dot" /><span>Moderate</span>
+              </button>
+              <button type="button" className={`chart-legend-item ${hiddenAssessments.includes('high') ? 'hidden' : ''}`} onClick={() => toggleAssessment('high')}>
+                <i className="high-stability-dot" /><span>High</span>
+              </button>
+            </div>
           </div>
-          <div className="legend chart-legend">
-            <span><i className="low-stability-dot" />Low</span>
-            <span><i className="moderate-stability-dot" />Moderate</span>
-            <span><i className="high-stability-dot" />High</span>
+          <p className="stability-readout" aria-live="polite">
+            {hoverReadout ? (
+              <>
+                <span className="stability-readout-month">{hoverReadout.month}</span>
+                <span className={`stability-readout-badge ${hoverReadout.assessment}`}>{hoverReadout.assessment}</span>
+                <span className="stability-readout-value">{hoverReadout.value}</span>
+              </>
+            ) : (
+              <span className="stability-readout-placeholder">Hover a data point for details</span>
+            )}
+          </p>
+          <div className="stability-chart">
+            <StabilityChart logs={logs} onHover={setHoverReadout} hiddenAssessments={hiddenAssessments} />
           </div>
         </article>
         <article className="monitoring-card">

@@ -37,7 +37,7 @@
 .log-heading {
   position: sticky;
   top: 0;
-  z-index: 1;
+  z-index: 2;
   min-height: 30px;
   border-top: 0;
   color: var(--color-accent);
@@ -45,6 +45,8 @@
   font-weight: 700;
   letter-spacing: .08em;
   text-transform: uppercase;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  background: var(--color-bg-surface);
 }
 
 .log-row b { color: var(--color-text-primary); font-size: 12px; }

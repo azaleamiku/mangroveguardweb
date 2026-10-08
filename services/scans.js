@@ -31,10 +31,17 @@ export async function toScan(db, dataDirectory, payload) {
       ? source.predicted_assessment.toLowerCase()
       : ''
   const imageBase64 = typeof source.imageBase64 === 'string' ? source.imageBase64.trim() : ''
-  const deviceId = typeof source.deviceId === 'string' ? source.deviceId.trim() : typeof source.device_id === 'string' ? source.device_id.trim() : null
+  let deviceId = typeof source.deviceId === 'string' ? source.deviceId.trim() : typeof source.device_id === 'string' ? source.device_id.trim() : null
   const sessionId = typeof source.sessionId === 'string' ? source.sessionId.trim() : typeof source.session_id === 'string' ? source.session_id.trim() : null
   if (deviceId === '') deviceId = null
   if (sessionId === '') sessionId = null
+
+  if (!deviceId && sessionId) {
+    const sessionRow = db.prepare('SELECT deviceId FROM sessions WHERE sessionId = ?').get(sessionId)
+    if (sessionRow && sessionRow.deviceId && sessionRow.deviceId !== 'unknown') {
+      deviceId = sessionRow.deviceId
+    }
+  }
 
   let deviceName = null
   if (deviceId) {
