@@ -173,7 +173,7 @@ export default function LogsPage({ logs, logsConnected }) {
               </button>
             </th>
             <th>
-              <span className="sortable-header">Session ID</span>
+              <span className="sortable-header">Device Name</span>
             </th>
           </tr>
         </thead>
@@ -182,7 +182,7 @@ export default function LogsPage({ logs, logsConnected }) {
         <table className="data-table">
           <tbody>
             {processedLogs.map((scan, index) => {
-              const { id, treeId, scannedAt, assessment, sessionId } = scan
+              const { id, treeId, scannedAt, assessment, sessionId, deviceName } = scan
               const label = `${assessment[0].toUpperCase()}${assessment.slice(1)}`
               const rowId = id || `${treeId}-${scannedAt}-${index}`
               const isSelected = rowId === modalScanId
@@ -211,7 +211,7 @@ export default function LogsPage({ logs, logsConnected }) {
                   <td><b>{treeId}</b></td>
                   <td><time>{formatLogDate(scannedAt)}</time></td>
                   <td><span className={`assessment ${assessment === 'low' ? 'assessment-low' : assessment}`}>{label}</span></td>
-                  <td><span className="session-id">{sessionId || '—'}</span></td>
+                  <td><span className="device-name">{deviceName || '—'}</span></td>
                 </tr>
               )
             })}
@@ -256,7 +256,7 @@ export default function LogsPage({ logs, logsConnected }) {
                   <dl>
                     <div><dt>Date</dt><dd>{formatLogDate(modalScan.scannedAt)}</dd></div>
                     <div><dt>Time</dt><dd>{formatLogTime(modalScan.scannedAt)}</dd></div>
-                    <div><dt>Session ID</dt><dd>{modalScan.sessionId || '—'}</dd></div>
+                    <div><dt>Device Name</dt><dd>{modalScan.deviceName || '—'}</dd></div>
                     <div><dt>Server Received</dt><dd>{formatDateTime(modalScan.serverReceived)}</dd></div>
                   </dl>
                   {scanGuidance && (

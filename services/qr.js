@@ -1,9 +1,14 @@
+import { createHash } from 'node:crypto'
 import QRCode from 'qrcode'
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { createLogger } from './logger.js'
 
 const logger = createLogger('qr')
+
+export function hashPairToken(token) {
+  return createHash('sha256').update(String(token)).digest('hex')
+}
 
 export async function generateStyledQrDataUrl(root, text) {
   const qr = await QRCode.create(text, { errorCorrectionLevel: 'H' })
@@ -41,15 +46,25 @@ export async function generateStyledQrDataUrl(root, text) {
 }
 
 export function createPairToken(db, token) {
-  db.prepare("INSERT OR REPLACE INTO pair_tokens (token, created_at, used, device_id) VALUES (?, datetime('now'), 0, NULL)").run(token)
+  db.prepare("INSERT OR REPLACE INTO pair_tokens (token, created_at, used, device_id) VALUES (?, datetime('now'), 0, NULL)").run(hashPairToken(token))
 }
 
 export function getPairToken(db, token) {
-  return db.prepare('SELECT token, created_at, used, device_id FROM pair_tokens WHERE token = ?').get(token)
+  // Accept legacy plaintext rows during migration, prefer hashed lookup.
+  const hashed = hashPairToken(token)
+  return db.prepare('SELECT token, created_at, used, device_id FROM pair_tokens WHERE token = ? OR token = ?').get(hashed, token)
 }
 
 export function markPairTokenUsed(db, token, deviceId) {
-  db.prepare('UPDATE pair_tokens SET used = 1, device_id = ? WHERE token = ?').run(deviceId, token)
+  const hashed = hashPairToken(token)
+  const result = db.prepare('UPDATE pair_tokens SET used = 1, device_id = ? WHERE token = ?').run(deviceId, hashed)
+  if (result.changes === 0) {
+    db.prepare('UPDATE pair_tokens SET used = 1, device_id = ? WHERE token = ?').run(deviceId, token)
+  }
+  // Ensure the stored row no longer holds a plaintext secret.
+  try {
+    db.prepare('UPDATE pair_tokens SET token = ? WHERE token = ?').run(hashed, token)
+  } catch (_) {}
 }
 
 export function cleanupStalePairTokens(db) {

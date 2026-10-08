@@ -1,5 +1,6 @@
 import { sessionSubscribers, notifySessionSubscribers } from '../services/subscribers.js'
 import { createLogger } from '../services/logger.js'
+import { validateSessionRequest, validateSessionEndRequest } from '../services/validation.js'
 
 const logger = createLogger('sessions')
 
@@ -32,7 +33,7 @@ export function registerSessionRoutes(app, db) {
     })
   })
 
-  app.post('/api/sessions', (request, response, next) => {
+  app.post('/api/sessions', validateSessionRequest, (request, response, next) => {
     try {
       const body = request.body || {}
       const sessionId = typeof body.sessionId === 'string' ? body.sessionId.trim() : typeof body.session_id === 'string' ? body.session_id.trim() : ''
@@ -50,7 +51,7 @@ export function registerSessionRoutes(app, db) {
     } catch (error) { next(error) }
   })
 
-  app.post('/api/sessions/:sessionId/end', (request, response, next) => {
+  app.post('/api/sessions/:sessionId/end', validateSessionEndRequest, (request, response, next) => {
     try {
       const { sessionId } = request.params
       if (!sessionId) return response.status(400).json({ error: 'sessionId is required.', code: 'VALIDATION_ERROR' })

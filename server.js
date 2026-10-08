@@ -5,6 +5,7 @@ import Database from 'better-sqlite3'
 import { mkdir } from 'node:fs/promises'
 import { initDb, seedDatabase } from './db/migrate.js'
 import { generateStyledQrDataUrl } from './services/qr.js'
+import { createRateLimiter } from './services/rate-limit.js'
 import { registerScanRoutes } from './routes/scans.js'
 import { registerDeviceRoutes } from './routes/devices.js'
 import { registerSessionRoutes } from './routes/sessions.js'
@@ -30,6 +31,12 @@ const db = new Database(dbPath)
 
 initDb(db)
 //seedDatabase(db)
+
+// Abuse-sensitive endpoints: QR issuance, pairing, and batch ingest.
+const pairLimiter = createRateLimiter({ windowMs: 60_000, max: 30 })
+const batchLimiter = createRateLimiter({ windowMs: 60_000, max: 60 })
+app.use('/api/pair', pairLimiter)
+app.use('/api/scans/batch', batchLimiter)
 
 registerScanRoutes(app, db, dataDirectory)
 registerDeviceRoutes(app, db)

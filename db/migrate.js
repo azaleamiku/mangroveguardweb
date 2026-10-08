@@ -1,8 +1,131 @@
 import Database from 'better-sqlite3'
+import crypto from 'node:crypto'
+import path from 'node:path'
+import { createHash } from 'node:crypto'
 import { saveScanImage } from '../services/scans.js'
 import { createLogger } from '../services/logger.js'
 
 const logger = createLogger('db')
+
+// Schema version for FK migration. v1 = legacy (no FKs), v2 = FKs enforced.
+const SCHEMA_VERSION = 2
+
+function tableSql(db, table) {
+  try {
+    const row = db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ?").get(table)
+    return row ? row.sql || '' : ''
+  } catch (_) {
+    return ''
+  }
+}
+
+function ensureForeignKeys(db) {
+  const currentVersion = db.pragma('user_version', { simple: true }) || 0
+  if (currentVersion >= SCHEMA_VERSION) {
+    db.pragma('foreign_keys = ON')
+    return
+  }
+
+  const scansSql = tableSql(db, 'scans')
+  const sessionsSql = tableSql(db, 'sessions')
+  const needsMigration = currentVersion < 2
+    && (scansSql && !scansSql.includes('FOREIGN KEY')
+      || sessionsSql && !sessionsSql.includes('FOREIGN KEY')
+      || !scansSql || !sessionsSql)
+
+  if (!needsMigration) {
+    db.pragma('user_version = ' + SCHEMA_VERSION)
+    db.pragma('foreign_keys = ON')
+    return
+  }
+
+  logger.info('Migrating database to schema v2 (foreign keys)')
+  db.pragma('foreign_keys = OFF')
+  const migrateTxn = db.transaction(() => {
+    // Placeholder rows preserve scan history when parent rows are missing.
+    db.prepare("INSERT OR IGNORE INTO devices (deviceId, deviceName, registeredAt, lastSeenAt) VALUES ('unknown', 'Unknown Device', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)").run()
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS sessions_new (
+        sessionId TEXT PRIMARY KEY,
+        deviceId TEXT NOT NULL DEFAULT 'unknown' REFERENCES devices(deviceId) ON DELETE SET DEFAULT ON UPDATE CASCADE,
+        startedAt TEXT DEFAULT CURRENT_TIMESTAMP,
+        endedAt TEXT
+      );
+      INSERT OR IGNORE INTO sessions_new (sessionId, deviceId, startedAt, endedAt)
+        SELECT sessionId, COALESCE(NULLIF(deviceId, ''), 'unknown'), startedAt, endedAt FROM sessions;
+      DROP TABLE sessions;
+      ALTER TABLE sessions_new RENAME TO sessions;
+      CREATE TABLE IF NOT EXISTS scans_new (
+        id TEXT PRIMARY KEY,
+        treeId TEXT NOT NULL,
+        scannedAt TEXT NOT NULL,
+        assessment TEXT NOT NULL CHECK(assessment IN ('high', 'moderate', 'low')),
+        imagePath TEXT,
+        sessionId TEXT REFERENCES sessions(sessionId) ON DELETE SET NULL ON UPDATE CASCADE,
+        deviceId TEXT REFERENCES devices(deviceId) ON DELETE SET NULL ON UPDATE CASCADE,
+        serverReceived TEXT DEFAULT CURRENT_TIMESTAMP,
+        createdAt TEXT DEFAULT CURRENT_TIMESTAMP
+      );
+      INSERT OR IGNORE INTO scans_new (id, treeId, scannedAt, assessment, imagePath, sessionId, deviceId, serverReceived, createdAt)
+        SELECT id, treeId, scannedAt, assessment, imagePath, sessionId, deviceId, serverReceived, createdAt FROM scans;
+      DROP TABLE scans;
+      ALTER TABLE scans_new RENAME TO scans_new_tmp;
+    `)
+    // Null out orphan references (can't FK-point at rows that don't exist).
+    db.prepare("UPDATE scans_new_tmp SET sessionId = NULL WHERE sessionId IS NOT NULL AND sessionId NOT IN (SELECT sessionId FROM sessions)").run()
+    db.prepare("UPDATE scans_new_tmp SET deviceId = NULL WHERE deviceId IS NOT NULL AND deviceId NOT IN (SELECT deviceId FROM devices)").run()
+    db.prepare("UPDATE sessions SET deviceId = 'unknown' WHERE deviceId IS NULL OR deviceId = '' OR deviceId NOT IN (SELECT deviceId FROM devices)").run()
+    db.exec(`
+      ALTER TABLE scans_new_tmp RENAME TO scans;
+      CREATE INDEX IF NOT EXISTS idx_scannedAt ON scans(scannedAt DESC);
+      CREATE INDEX IF NOT EXISTS idx_sessionId ON scans(sessionId);
+      CREATE INDEX IF NOT EXISTS idx_deviceId ON scans(deviceId);
+    `)
+    db.pragma('user_version = ' + SCHEMA_VERSION)
+  })
+  try {
+    migrateTxn()
+  } catch (error) {
+    logger.error('FK migration failed', { error: error.message })
+  }
+  db.pragma('foreign_keys = ON')
+  try {
+    const violations = db.prepare('PRAGMA foreign_key_check').all()
+    if (violations.length > 0) logger.error('Foreign key violations after migration', { count: violations.length })
+    else logger.info('Foreign key check passed')
+  } catch (_) {}
+}
+
+function hashLegacyToken(token) {
+  return createHash('sha256').update(String(token)).digest('hex')
+}
+
+function hashLegacyPairTokens(db) {
+  // One-time backfill: replace plaintext pair_tokens + devices.lastPairedToken
+  // with SHA-256 hashes. Plaintext UUIDs are 36 chars; hashes are 64 hex chars.
+  try {
+    const plaintextRows = db.prepare("SELECT token FROM pair_tokens WHERE length(token) != 64").all()
+    if (plaintextRows.length === 0) return
+    const updateToken = db.prepare('UPDATE pair_tokens SET token = ? WHERE token = ?')
+    const updateDevice = db.prepare('UPDATE devices SET lastPairedToken = ? WHERE lastPairedToken = ?')
+    const backfill = db.transaction((rows) => {
+      for (const row of rows) {
+        const hashed = hashLegacyToken(row.token)
+        try {
+          updateDevice.run(hashed, row.token)
+        } catch (_) {}
+        try {
+          updateToken.run(hashed, row.token)
+        } catch (_) {
+          // Hash collision with existing row: drop the plaintext duplicate.
+          try { db.prepare('DELETE FROM pair_tokens WHERE token = ?').run(row.token) } catch (_) {}
+        }
+      }
+    })
+    backfill(plaintextRows)
+    logger.info('Hashed legacy pair tokens', { count: plaintextRows.length })
+  } catch (_) {}
+}
 
 export function initDb(db) {
   db.exec(`
@@ -74,6 +197,9 @@ export function initDb(db) {
     const updated = backfill.run().changes
     if (updated > 0) logger.info('Backfilled deviceId for scans', { updated })
   } catch (_) {}
+
+  hashLegacyPairTokens(db)
+  ensureForeignKeys(db)
 }
 
 export function seedDatabase(db) {

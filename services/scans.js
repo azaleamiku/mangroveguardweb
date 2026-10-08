@@ -1,3 +1,4 @@
+import crypto from 'node:crypto'
 import { mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { notifyLogSubscribers, notifySessionSubscribers } from './subscribers.js'

@@ -1,12 +1,14 @@
 import { deviceSubscribers, notifyDeviceSubscribers } from '../services/subscribers.js'
 import { createLogger } from '../services/logger.js'
+import { validateDeviceRequest } from '../services/validation.js'
 
 const logger = createLogger('devices')
 
 export function registerDeviceRoutes(app, db) {
   app.get('/api/devices', (_request, response, next) => {
     try {
-      const devices = db.prepare('SELECT deviceId, deviceName, registeredAt, lastSeenAt, lastPairedToken FROM devices ORDER BY lastSeenAt DESC').all()
+      // Never expose lastPairedToken (secret-equivalent): return boolean instead.
+      const devices = db.prepare("SELECT deviceId, deviceName, registeredAt, lastSeenAt, CASE WHEN lastPairedToken IS NOT NULL AND lastPairedToken != '' THEN 1 ELSE 0 END AS isPaired FROM devices ORDER BY lastSeenAt DESC").all()
       response.json(devices)
     } catch (error) { next(error) }
   })
@@ -32,7 +34,7 @@ export function registerDeviceRoutes(app, db) {
     })
   })
 
-  app.post('/api/devices', (request, response, next) => {
+  app.post('/api/devices', validateDeviceRequest, (request, response, next) => {
     try {
       const body = request.body || {}
       const deviceId = typeof body.deviceId === 'string' ? body.deviceId.trim() : typeof body.device_id === 'string' ? body.device_id.trim() : ''

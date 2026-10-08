@@ -1,6 +1,8 @@
+import crypto from 'node:crypto'
 import { deviceSubscribers, notifyDeviceSubscribers, sessionSubscribers, notifySessionSubscribers } from '../services/subscribers.js'
-import { createPairToken, getPairToken, markPairTokenUsed, cleanupStalePairTokens } from '../services/qr.js'
+import { createPairToken, getPairToken, markPairTokenUsed, cleanupStalePairTokens, hashPairToken } from '../services/qr.js'
 import { createLogger } from '../services/logger.js'
+import { validatePairConfirmRequest, validatePairUnpairRequest } from '../services/validation.js'
 
 const logger = createLogger('pair')
 
@@ -33,7 +35,7 @@ export function registerPairRoutes(app, db, root, generateStyledQrDataUrl) {
     res.send(`<!doctype html><html><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Pair Device</title><style>body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;background:#0f172a;color:#e2e8f0}form{display:flex;flex-direction:column;gap:12px;width:min(360px,90vw);padding:24px;border-radius:24px;background:#1e293b;box-shadow:0 20px 50px rgba(15,23,42,0.5)}input{padding:14px 16px;border-radius:14px;border:1px solid #334155;background:#0f172a;color:#f8fafc;font:inherit;font-size:14px}button{padding:14px;border:0;border-radius:14px;background:#10b981;color:#fff;font-weight:700;cursor:pointer}label{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#94a3b8}</style></head><body><form method="POST" action="/api/pair/confirm"><input type="hidden" name="token" value="${token}"/><div><label>Device ID</label><input name="deviceId" required placeholder="Device ID"/></div><div><label>Device Name</label><input name="deviceName" placeholder="Optional"/></div><button type="submit">Confirm Pairing</button></form></body></html>`)
   })
 
-  app.post('/api/pair/unpair', (req, res) => {
+  app.post('/api/pair/unpair', validatePairUnpairRequest, (req, res) => {
     const body = req.body || {}
     const deviceId = typeof body.deviceId === 'string' ? body.deviceId.trim() : typeof body.device_id === 'string' ? body.device_id.trim() : ''
     if (!deviceId) return res.status(400).json({ error: 'deviceId is required', code: 'VALIDATION_ERROR' })
@@ -43,6 +45,7 @@ export function registerPairRoutes(app, db, root, generateStyledQrDataUrl) {
     db.prepare('UPDATE devices SET lastPairedToken = NULL, lastSeenAt = ? WHERE deviceId = ?').run(now, deviceId)
 
     if (existing && existing.lastPairedToken) {
+      // lastPairedToken stores a SHA-256 hash; also cover legacy plaintext rows.
       db.prepare('UPDATE pair_tokens SET used = 1 WHERE token = ?').run(existing.lastPairedToken)
     }
 
@@ -50,7 +53,19 @@ export function registerPairRoutes(app, db, root, generateStyledQrDataUrl) {
     res.json({ deviceId, unpairedAt: now })
   })
 
-  app.post('/api/pair/confirm', (req, res) => {
+  // Server-verified pairing status: dashboard polls this with the QR token it
+  // generated instead of comparing secrets client-side from /api/devices.
+  app.get('/api/pair/status', (req, res) => {
+    const token = typeof req.query.token === 'string' ? req.query.token.trim() : ''
+    if (!token) return res.status(400).json({ error: 'token is required', code: 'VALIDATION_ERROR' })
+    const tokenHash = hashPairToken(token)
+    const device = db.prepare('SELECT deviceId, deviceName, registeredAt, lastSeenAt FROM devices WHERE lastPairedToken = ?').get(tokenHash)
+      || db.prepare('SELECT deviceId, deviceName, registeredAt, lastSeenAt FROM devices WHERE lastPairedToken = ?').get(token)
+    if (!device) return res.json({ paired: false, device: null })
+    return res.json({ paired: true, device })
+  })
+
+  app.post('/api/pair/confirm', validatePairConfirmRequest, (req, res) => {
     const body = req.body || {}
     const token = typeof body.token === 'string' ? body.token.trim() : ''
     const deviceId = typeof body.deviceId === 'string' ? body.deviceId.trim() : typeof body.device_id === 'string' ? body.device_id.trim() : ''
@@ -61,8 +76,9 @@ export function registerPairRoutes(app, db, root, generateStyledQrDataUrl) {
 
     markPairTokenUsed(db, token, deviceId)
     const now = new Date().toISOString()
+    const tokenHash = hashPairToken(token)
     db.prepare('INSERT OR IGNORE INTO devices (deviceId, deviceName, registeredAt, lastSeenAt) VALUES (?, ?, ?, ?)').run(deviceId, deviceName || deviceId, now, now)
-    db.prepare('UPDATE devices SET deviceName = COALESCE(?, deviceName), lastSeenAt = ?, lastPairedToken = ? WHERE deviceId = ?').run(deviceName || null, now, token, deviceId)
+    db.prepare('UPDATE devices SET deviceName = COALESCE(?, deviceName), lastSeenAt = ?, lastPairedToken = ? WHERE deviceId = ?').run(deviceName || null, now, tokenHash, deviceId)
 
     notifyDeviceSubscribers()
     res.status(201).json({ deviceId, pairedAt: now })

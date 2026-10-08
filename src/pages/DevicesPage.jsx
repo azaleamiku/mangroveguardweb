@@ -3,7 +3,7 @@ import { formatDateTime, isOnline } from '../utils.js'
 import Icon from '../components/Icon.jsx'
 
 function getDeviceStatus(device) {
-  if (!device.lastPairedToken) return 'Unpaired'
+  if (!device.isPaired) return 'Unpaired'
   return isOnline(device.lastSeenAt) ? 'Online' : 'Offline'
 }
 
@@ -63,20 +63,31 @@ export default function DevicesPage({ devices: initialDevices }) {
 
    useEffect(() => {
      if (!isAddPanelOpen || qrStatus !== 'ready') return
-
-     const token = currentTokenRef.current
-     if (!token) return
-
-     const matchedDevice = devices.find(d => d.lastPairedToken === token)
-     if (matchedDevice) {
-       setPairedDevice(matchedDevice)
-       setDeviceId(matchedDevice.deviceId)
-       setDeviceName(matchedDevice.deviceName || matchedDevice.deviceId)
-       setQrStatus('connected')
-       setStatusMessage(`Paired ${matchedDevice.deviceId}`)
-       return
+     const pairToken = currentTokenRef.current
+     if (!pairToken) return
+     let statusCancelled = false
+     async function pollPairStatus() {
+       try {
+         const res = await fetch(`/api/pair/status?token=${encodeURIComponent(pairToken)}`)
+         const data = await res.json()
+         if (statusCancelled || !data || !data.paired || !data.device) return
+         setPairedDevice(data.device)
+         setDeviceId(data.device.deviceId)
+         setDeviceName(data.device.deviceName || data.device.deviceId)
+         setQrStatus('connected')
+         setStatusMessage(`Paired ${data.device.deviceId}`)
+       } catch (_) {}
      }
-   }, [devices, isAddPanelOpen, qrStatus])
+     pollPairStatus()
+     const statusInterval = setInterval(pollPairStatus, 2000)
+     return () => {
+       statusCancelled = true
+       clearInterval(statusInterval)
+     }
+    }, [isAddPanelOpen, qrStatus])
+
+
+   // Pairing is verified server-side via /api/pair/status (see effect above).
 
   async function handleDisconnect() {
     const pairedDeviceId = pairedDevice?.deviceId || deviceId

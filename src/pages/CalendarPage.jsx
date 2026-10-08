@@ -35,12 +35,12 @@ export default function CalendarPage({ logs }) {
   const handleDayClick = (day) => {
     const clickedDate = new Date(currentYear, selectedMonth, day)
     setSelectedDate(clickedDate)
-    setDeviceFilter(null)
+    setStatusFilter(null)
   }
 
   const handleBackToCalendar = () => {
     setSelectedDate(null)
-    setDeviceFilter(null)
+    setStatusFilter(null)
   }
 
   const handlePrevDay = () => {
