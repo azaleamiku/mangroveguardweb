@@ -116,6 +116,12 @@ function validateSessionEndRequest(req, res, next) {
   next();
 }
 
+function decodedBase64ByteLength(imageBase64) {
+  // Strip an optional data URL prefix before measuring decoded size.
+  const normalized = imageBase64.replace(/^data:image\/[a-zA-Z]+;base64,/, '')
+  return Buffer.from(normalized, 'base64').length
+}
+
 function validateScanPayload(payload) {
   const errors = [];
 
@@ -142,8 +148,16 @@ function validateScanPayload(payload) {
   if (imageBase64 != null) {
     if (typeof imageBase64 !== 'string') {
       errors.push('imageBase64 must be a string.');
-    } else if (imageBase64.length > MAX_IMAGE_BASE64_BYTES) {
-      errors.push('imageBase64 exceeds maximum allowed size.');
+    } else {
+      // Validate the *decoded* byte size, not the base64 string length.
+      // Base64 inflates data by ~33%, so an 8 MB string may decode to ~6 MB
+      // while a shorter string with dense bytes could decode to more than 8 MB.
+      const decodedBytes = decodedBase64ByteLength(imageBase64);
+      if (decodedBytes === 0) {
+        errors.push('imageBase64 is empty or invalid.');
+      } else if (decodedBytes > MAX_IMAGE_BASE64_BYTES) {
+        errors.push('imageBase64 exceeds maximum allowed size.');
+      }
     }
   }
 

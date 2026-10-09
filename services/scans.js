@@ -3,6 +3,7 @@ import { mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { notifyLogSubscribers, notifySessionSubscribers } from './subscribers.js'
 import { createLogger } from './logger.js'
+import { MAX_IMAGE_BASE64_BYTES } from './validation.js'
 
 const logger = createLogger('scans')
 
@@ -10,7 +11,7 @@ export async function saveScanImage(dataDirectory, scanId, imageBase64) {
   if (!imageBase64) return ''
   const normalized = imageBase64.replace(/^data:image\/[a-zA-Z]+;base64,/, '')
   const imageBuffer = Buffer.from(normalized, 'base64')
-  if (imageBuffer.length === 0 || imageBuffer.length > 8 * 1024 * 1024) return ''
+  if (imageBuffer.length === 0 || imageBuffer.length > MAX_IMAGE_BASE64_BYTES) return ''
   const imagesDirectory = path.join(dataDirectory, 'scan-images')
   await mkdir(imagesDirectory, { recursive: true })
   const fileName = `${scanId}.jpg`
@@ -21,7 +22,7 @@ export async function saveScanImage(dataDirectory, scanId, imageBase64) {
 export async function toScan(db, dataDirectory, payload) {
   const source = payload || {}
   const treeId = typeof source.treeId === 'string' ? source.treeId.trim() : typeof source.tree_id === 'string' ? source.tree_id.trim() : ''
-  const validTreeId = /^MG-[a-z0-9]+-\d{6}(-\d+)?$/.test(treeId)
+  const validTreeId = /^MG-[a-zA-Z0-9]+-\d{6}(-\d+)?$/.test(treeId)
   if (!validTreeId) {
     logger.debug('Warning: non-standard treeId format received: ' + treeId)
   }

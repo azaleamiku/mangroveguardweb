@@ -4,6 +4,7 @@ import {
   validateScanPayload,
   validateBatchPayload,
   MAX_BATCH_SCANS,
+  MAX_IMAGE_BASE64_BYTES,
 } from '../services/validation.js'
 
 /** Minimal req/res/next harness for middleware-style validators. */
@@ -85,15 +86,29 @@ describe('validateScanPayload', () => {
     assert.equal(result.valid, true)
   })
 
-  it('rejects oversized imageBase64 (length cap)', () => {
+  it('rejects oversized imageBase64 (decoded byte cap)', () => {
+    // A base64 string whose *decoded* bytes exceed the 8 MB cap must be rejected,
+    // even though its string length is well under the old length-based limit.
+    const oversized = Buffer.alloc(MAX_IMAGE_BASE64_BYTES + 1).toString('base64')
     const result = validateScanPayload({
       treeId: 'MG-01-123456',
       scannedAt: '2026-01-02T03:04:05.000Z',
       assessment: 'low',
-      imageBase64: 'x'.repeat(8 * 1024 * 1024 + 1),
+      imageBase64: oversized,
     })
     assert.equal(result.valid, false)
     assert.ok(result.errors.some((e) => e.includes('imageBase64')))
+  })
+
+  it('accepts an 8 MB base64 string (decodes to ~6 MB)', () => {
+    // Base64 inflates data by ~33%; an 8 MB string decodes to ~6 MB and must pass.
+    const result = validateScanPayload({
+      treeId: 'MG-01-123456',
+      scannedAt: '2026-01-02T03:04:05.000Z',
+      assessment: 'low',
+      imageBase64: Buffer.alloc(MAX_IMAGE_BASE64_BYTES).toString('base64'),
+    })
+    assert.equal(result.valid, true)
   })
 })
 

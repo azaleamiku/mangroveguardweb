@@ -11,6 +11,7 @@ import { registerDeviceRoutes } from './routes/devices.js'
 import { registerSessionRoutes } from './routes/sessions.js'
 import { registerPairRoutes } from './routes/pair.js'
 import { createLogger } from './services/logger.js'
+import { logSubscribers, deviceSubscribers, sessionSubscribers } from './services/subscribers.js'
 
 const logger = createLogger('server')
 const app = express()
@@ -56,3 +57,37 @@ app.use((error, _request, response, _next) => {
 
 const server = app.listen(port, '0.0.0.0', () => logger.info('Listening', { port }))
 server.timeout = 30000
+
+function closeSseConnections() {
+  logger.info('Closing SSE connections')
+  for (const response of logSubscribers) {
+    try { response.end() } catch (_) {}
+  }
+  for (const response of deviceSubscribers) {
+    try { response.end() } catch (_) {}
+  }
+  for (const response of sessionSubscribers) {
+    try { response.end() } catch (_) {}
+  }
+  logSubscribers.clear()
+  deviceSubscribers.clear()
+  sessionSubscribers.clear()
+}
+
+function shutdown(signal) {
+  logger.info('Received signal, starting graceful shutdown', { signal })
+  server.close(() => {
+    logger.info('HTTP server closed')
+    closeSseConnections()
+    try { db.close() } catch (_) {}
+    logger.info('Database closed')
+    process.exit(0)
+  })
+  setTimeout(() => {
+    logger.error('Forced shutdown after timeout')
+    process.exit(1)
+  }, 10000).unref()
+}
+
+process.on('SIGTERM', () => shutdown('SIGTERM'))
+process.on('SIGINT', () => shutdown('SIGINT'))
