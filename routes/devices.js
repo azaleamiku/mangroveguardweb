@@ -8,7 +8,9 @@ export function registerDeviceRoutes(app, db) {
   app.get('/api/devices', (_request, response, next) => {
     try {
       // Never expose lastPairedToken (secret-equivalent): return boolean instead.
-      const devices = db.prepare("SELECT deviceId, deviceName, registeredAt, lastSeenAt, CASE WHEN lastPairedToken IS NOT NULL AND lastPairedToken != '' THEN 1 ELSE 0 END AS isPaired FROM devices ORDER BY lastSeenAt DESC").all()
+      // Exclude the 'unknown' sentinel row: it is schema plumbing for orphaned
+      // sessions/scans, not a real registered device.
+      const devices = db.prepare("SELECT deviceId, deviceName, registeredAt, lastSeenAt, CASE WHEN lastPairedToken IS NOT NULL AND lastPairedToken != '' THEN 1 ELSE 0 END AS isPaired FROM devices WHERE deviceId != 'unknown' ORDER BY lastSeenAt DESC").all()
       response.json(devices)
     } catch (error) { next(error) }
   })

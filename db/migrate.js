@@ -43,7 +43,14 @@ function ensureForeignKeys(db) {
   db.pragma('foreign_keys = OFF')
   const migrateTxn = db.transaction(() => {
     // Placeholder rows preserve scan history when parent rows are missing.
-    db.prepare("INSERT OR IGNORE INTO devices (deviceId, deviceName, registeredAt, lastSeenAt) VALUES ('unknown', 'Unknown Device', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)").run()
+    // Only seed the sentinel when something actually needs an orphan target;
+    // inserting it unconditionally leaves a stray 'Unknown Device' row on
+    // empty/fresh databases.
+    const hasOrphanTargets = db.prepare('SELECT 1 FROM sessions LIMIT 1').get()
+      || db.prepare('SELECT 1 FROM scans WHERE sessionId IS NOT NULL OR deviceId IS NOT NULL LIMIT 1').get()
+    if (hasOrphanTargets) {
+      db.prepare("INSERT OR IGNORE INTO devices (deviceId, deviceName, registeredAt, lastSeenAt) VALUES ('unknown', 'Unknown Device', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)").run()
+    }
     db.exec(`
       CREATE TABLE IF NOT EXISTS sessions_new (
         sessionId TEXT PRIMARY KEY,
