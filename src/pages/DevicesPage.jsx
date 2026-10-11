@@ -16,12 +16,44 @@ export default function DevicesPage({ devices: initialDevices }) {
   const [statusMessage, setStatusMessage] = useState('')
   const [qrStatus, setQrStatus] = useState('idle')
   const [pairedDevice, setPairedDevice] = useState(null)
+  const [unpairingDeviceId, setUnpairingDeviceId] = useState(null)
   const knownDeviceIdsRef = useRef(new Set())
   const currentTokenRef = useRef(null)
 
   useEffect(() => {
     setDevices(initialDevices)
   }, [initialDevices])
+
+  async function refreshDevices() {
+    try {
+      const response = await fetch('/api/devices')
+      if (!response.ok) return
+      const data = await response.json()
+      setDevices(data)
+    } catch (_) {}
+  }
+
+  async function handleUnpair(device) {
+    if (unpairingDeviceId) return
+    setUnpairingDeviceId(device.deviceId)
+    try {
+      const response = await fetch('/api/pair/unpair', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deviceId: device.deviceId }),
+      })
+      if (!response.ok) {
+        setStatusMessage(`Unpair failed for ${device.deviceId}`)
+        return
+      }
+      await refreshDevices()
+    } catch (e) {
+      console.error('Unpair failed', e)
+      setStatusMessage(`Unpair failed for ${device.deviceId}`)
+    } finally {
+      setUnpairingDeviceId(null)
+    }
+  }
 
   useEffect(() => {
     if (!isAddPanelOpen) return
@@ -126,10 +158,6 @@ export default function DevicesPage({ devices: initialDevices }) {
     }
   }
 
-  function handleCancel() {
-    handleDisconnect()
-  }
-
   async function handleRetry() {
     setQrStatus('loading')
     try {
@@ -148,7 +176,7 @@ export default function DevicesPage({ devices: initialDevices }) {
     }
   }
 
-  const qrDisabled = qrStatus === 'connecting' || qrStatus === 'connected'
+  const qrDisabled = qrStatus === 'connected'
 
   return (
     <section className="devices-page">
@@ -188,11 +216,12 @@ export default function DevicesPage({ devices: initialDevices }) {
                   <th>Registration Date</th>
                   <th>Last Seen</th>
                   <th>Status</th>
+                  <th>Action</th>
                 </tr>
               </thead>
               <tbody>
                 {devices.length === 0 ? (
-                  <tr>                  <td colSpan="4" className="empty-state">
+                  <tr>                  <td colSpan="5" className="empty-state">
                     <div className="empty-state-inner">
                       <Icon name="devices" />
                       <span>No devices registered. Use the QR pairing panel to add one.</span>
@@ -205,6 +234,20 @@ export default function DevicesPage({ devices: initialDevices }) {
                       <td>{formatDateTime(device.registeredAt)}</td>
                       <td>{formatDateTime(device.lastSeenAt)}</td>
                       <td><span className={`status-badge ${getDeviceStatus(device).toLowerCase()}`}>{getDeviceStatus(device)}</span></td>
+                      <td className="row-action-cell">
+                        {device.isPaired ? (
+                          <button
+                            className="device-unpair-button"
+                            onClick={() => handleUnpair(device)}
+                            disabled={unpairingDeviceId === device.deviceId}
+                            title={`Unpair ${device.deviceName}`}
+                          >
+                            {unpairingDeviceId === device.deviceId ? 'Unpairing…' : 'Unpair'}
+                          </button>
+                        ) : (
+                          <span className="row-action-empty">—</span>
+                        )}
+                      </td>
                     </tr>
                   ))
                 )}
@@ -217,7 +260,7 @@ export default function DevicesPage({ devices: initialDevices }) {
             <div
               className="camera-placeholder"
               aria-live="polite"
-              aria-label={qrStatus === 'connected' ? 'Device connected' : qrStatus === 'connecting' ? 'Waiting for device' : 'QR pairing'}
+              aria-label={qrStatus === 'connected' ? 'Device connected' : 'QR pairing'}
             >
               {qr && qr.qrDataUrl ? (
                 <div style={{ position: 'relative', width: '100%' }}>
@@ -233,7 +276,7 @@ export default function DevicesPage({ devices: initialDevices }) {
                       transition: 'opacity 0.3s ease',
                     }}
                   />
-                  {(qrStatus === 'connecting' || qrStatus === 'connected') && (
+                  {qrStatus === 'connected' && (
                     <div style={{
                       position: 'absolute',
                       inset: 0,
@@ -244,21 +287,11 @@ export default function DevicesPage({ devices: initialDevices }) {
                       gap: 14,
                       borderRadius: '20px',
                     }}>
-                      {qrStatus === 'connecting' && (
-                        <>
-                          <div className="qr-spinner" />
-                          <span className="qr-overlay-label">Waiting for device...</span>
-                        </>
-                      )}
-                      {qrStatus === 'connected' && (
-                        <>
-                          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-                            <polyline points="22 4 12 14.01 9 11.01" />
-                          </svg>
-                          <span className="qr-overlay-label">Device connected</span>
-                        </>
-                      )}
+                      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                        <polyline points="22 4 12 14.01 9 11.01" />
+                      </svg>
+                      <span className="qr-overlay-label">Device connected</span>
                     </div>
                   )}
                 </div>
@@ -299,11 +332,6 @@ export default function DevicesPage({ devices: initialDevices }) {
             {qrStatus === 'connected' && (
               <button className="pair-disconnect-button" onClick={handleDisconnect}>
                 Disconnect
-              </button>
-            )}
-            {qrStatus === 'connecting' && (
-              <button className="pair-cancel-button" onClick={handleCancel}>
-                Cancel
               </button>
             )}
           </div>

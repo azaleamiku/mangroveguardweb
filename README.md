@@ -13,7 +13,6 @@ monitor activity, and trigger intervention protocols.
   streams updates over Server-Sent Events.
 - YOLOv8 integration from a Flutter mobile client that captures and
   classifies mangrove scans in the field.
-- Dockerized deployment with a persistent data volume.
 
 ## System Architecture
 
@@ -29,7 +28,7 @@ Flutter Mobile App          Web Dashboard (this repo)
            v                            |
 +----------------------------------------------+
 | Express server (server.js)                   |
-| - JSON file persistence in /app/data         |
+| - JSON file persistence in data/             |
 | - REST endpoints + SSE stream                |
 +----------------------------------------------+
 ```
@@ -51,7 +50,7 @@ Flutter Mobile App          Web Dashboard (this repo)
 
 ### Prerequisites
 
-- Node.js 20+ (Node 22 recommended, matches the Dockerfile)
+- Node.js 20+ (Node 22 recommended)
 - npm
 
 ### Install and run (development)
@@ -75,26 +74,6 @@ npm run build        # outputs static assets to dist/
 npm start            # serves dist/ + API on http://localhost:8080
 ```
 
-## Docker
-
-The repository includes a multi-stage `Dockerfile` and a `docker-compose.yml`
-that exposes the app on port `8080` and persists scan data in a named volume.
-
-```bash
-docker compose up -d --build
-```
-
-Then open http://localhost:8080.
-
-To stop and remove the containers:
-
-```bash
-docker compose down
-```
-
-The scan data volume (`dashboard-data`) is preserved across container
-restarts. Pass `-v` to `docker compose down` to also remove the volume.
-
 ## Project Layout
 
 ```
@@ -103,8 +82,6 @@ mangroveguardweb/
   server.js        Express API + SSE stream
   index.html       Vite entry point
   styles.css       Global styles
-  Dockerfile       Multi-stage build
-  docker-compose.yml
   vite.config.js
 ```
 
