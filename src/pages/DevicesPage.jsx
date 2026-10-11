@@ -17,6 +17,7 @@ export default function DevicesPage({ devices: initialDevices }) {
   const [qrStatus, setQrStatus] = useState('idle')
   const [pairedDevice, setPairedDevice] = useState(null)
   const [unpairingDeviceId, setUnpairingDeviceId] = useState(null)
+  const [confirmDialog, setConfirmDialog] = useState(null)
   const knownDeviceIdsRef = useRef(new Set())
   const currentTokenRef = useRef(null)
 
@@ -54,6 +55,15 @@ export default function DevicesPage({ devices: initialDevices }) {
       setUnpairingDeviceId(null)
     }
   }
+
+  useEffect(() => {
+    if (!confirmDialog) return
+    function onKeyDown(e) {
+      if (e.key === 'Escape') setConfirmDialog(null)
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [confirmDialog])
 
   useEffect(() => {
     if (!isAddPanelOpen) return
@@ -238,7 +248,7 @@ export default function DevicesPage({ devices: initialDevices }) {
                         {device.isPaired ? (
                           <button
                             className="device-unpair-button"
-                            onClick={() => handleUnpair(device)}
+                            onClick={() => setConfirmDialog({ mode: 'unpair', device })}
                             disabled={unpairingDeviceId === device.deviceId}
                             title={`Unpair ${device.deviceName}`}
                           >
@@ -330,13 +340,75 @@ export default function DevicesPage({ devices: initialDevices }) {
               {statusMessage && <p className="qr-status">{statusMessage}</p>}
             </div>
             {qrStatus === 'connected' && (
-              <button className="pair-disconnect-button" onClick={handleDisconnect}>
+              <button
+                className="pair-disconnect-button"
+                onClick={() =>
+                  setConfirmDialog({
+                    mode: 'disconnect',
+                    device: pairedDevice || { deviceId, deviceName: deviceId },
+                  })
+                }
+              >
                 Disconnect
               </button>
             )}
           </div>
         </div>
       </div>
+      {confirmDialog && (
+        <div
+          className="confirm-overlay"
+          onClick={() => setConfirmDialog(null)}
+        >
+          <div
+            className="confirm-modal"
+            role="alertdialog"
+            aria-modal="true"
+            aria-label={
+              confirmDialog.mode === 'disconnect'
+                ? 'Disconnect device?'
+                : 'Unpair device?'
+            }
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="confirm-title">
+              {confirmDialog.mode === 'disconnect'
+                ? 'Disconnect device?'
+                : 'Unpair device?'}
+            </h3>
+            <p className="confirm-text">
+              This will remove the saved server connection for{' '}
+              <b>{confirmDialog.device.deviceName}</b> (
+              {confirmDialog.device.deviceId}).
+            </p>
+            <div className="confirm-actions">
+              <button
+                type="button"
+                className="confirm-cancel"
+                onClick={() => setConfirmDialog(null)}
+                autoFocus
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="confirm-danger"
+                onClick={() => {
+                  const dialog = confirmDialog
+                  setConfirmDialog(null)
+                  if (dialog.mode === 'disconnect') {
+                    handleDisconnect()
+                  } else {
+                    handleUnpair(dialog.device)
+                  }
+                }}
+              >
+                {confirmDialog.mode === 'disconnect' ? 'Disconnect' : 'Unpair'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   )
 }
