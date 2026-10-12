@@ -137,22 +137,79 @@ function InterventionProtocol({ logs }) {
   const counts = logs.reduce((result, { assessment }) => ({ ...result, [assessment]: (result[assessment] || 0) + 1 }), { low: 0, moderate: 0, high: 0 })
   const status = counts.low >= counts.moderate && counts.low >= counts.high ? 'low' : counts.moderate >= counts.high ? 'moderate' : 'high'
   const protocols = {
-    low: { title: 'Low Stability Protocol', summary: 'Prioritize protection and hazard reduction for vulnerable mangroves.', steps: ['Restrict entry and prevent trampling or illegal harvesting.', 'Address nearby pollution, runoff, and sewage discharge.', 'Reinforce or relocate trees exposed to high surge risk.'] },
-    moderate: { title: 'Moderate Stability Protocol', summary: 'Strengthen surrounding support and reduce environmental stress.', steps: ['Clear debris trapped around roots and inspect after storms.', 'Plant saplings in gaps to improve stand density.', 'Use temporary breakwaters where erosion is increasing.'] },
-    high: { title: 'High Stability Protocol', summary: 'Protect resilient areas as conservation and monitoring zones.', steps: ['Prioritize conservation and designate no-touch areas.', 'Use the site as a baseline for nearby restoration work.', 'Allow only carefully managed education or research access.'] },
+    low: {
+      title: 'Low Stability Protocol',
+      summary: 'Prioritize protection and hazard reduction for vulnerable mangroves.',
+      narrative: [
+        'The Low Stability Protocol prioritizes ',
+        { strong: 'site-wide protection and threat reduction' },
+        ' across vulnerable mangrove zones. ',
+        { strong: 'Restrict public access' },
+        ' to prevent foot traffic, soil compaction, and illegal harvesting within fragile root systems. ',
+        { strong: 'Address watershed-level stressors' },
+        ' by controlling local pollution, agricultural runoff, and untreated sewage discharge. ',
+        { strong: 'Install wave-attenuation barriers' },
+        ' along exposed shorelines to stabilize ',
+        { strong: 'erosion-prone plots' },
+        ' and protect vulnerable sapling populations.',
+      ],
+    },
+    moderate: {
+      title: 'Moderate Stability Protocol',
+      summary: 'Strengthen surrounding support and reduce environmental stress.',
+      narrative: [
+        'The Moderate Stability Protocol focuses on ',
+        { strong: 'assisted natural recovery' },
+        ' and ',
+        { strong: 'habitat enhancement' },
+        ' across semi-established forest stands. ',
+        { strong: 'Restore natural tidal flow' },
+        ' by clearing blocked channels to maintain balanced salinity and nutrient exchange. ',
+        { strong: 'Stabilize vulnerable mudflats' },
+        ' using permeable wave barriers or eco-friendly erosion mats to preserve shoreline sediments. ',
+        { strong: 'Conduct regular monitoring' },
+        ' across the sector and perform ',
+        { strong: 'targeted enrichment planting' },
+        ' using wild-harvested propagules in sparse patches.',
+      ],
+    },
+    high: {
+      title: 'High Stability Protocol',
+      summary: 'Protect resilient areas as conservation and monitoring zones.',
+      narrative: [
+        'The High Stability Protocol emphasizes ',
+        { strong: 'ecosystem preservation' },
+        ', ',
+        { strong: 'community co-management' },
+        ', and ',
+        { strong: 'resource stewardship' },
+        '. ',
+        { strong: 'Establish formal conservation boundaries' },
+        ' and involve local communities in sustainable coastal management. ',
+        { strong: 'Maintain long-term monitoring' },
+        ' through periodic satellite or drone mapping to track canopy coverage and shoreline expansion. ',
+        { strong: 'Utilize stable forest sectors' },
+        ' as seed and propagule ',
+        { strong: 'donor reserves' },
+        ' for regional mangrove restoration projects.',
+      ],
+    },
   }
   const protocol = protocols[status]
   return (
-    <article className="protocol-card">
+    <article className={`protocol-card protocol-${status}`}>
       <p className="label">INTERVENTION PROTOCOL</p>
-      <div className="protocol-heading">
-        <div>
-          <h2>{protocol.title}</h2>
-          <p>{protocol.summary}</p>
-        </div>
-        <span className={`protocol-status ${status}`}>{status.toUpperCase()}</span>
+      <div>
+        <h2>{protocol.title}</h2>
+        <p>{protocol.summary}</p>
       </div>
-      <ol>{protocol.steps.map((step) => <li key={step}>{step}</li>)}</ol>
+      <p className="protocol-narrative">
+        {protocol.narrative.map((part, index) => (
+          typeof part === 'string'
+            ? part
+            : <strong key={index} className="protocol-highlight">{part.strong}</strong>
+        ))}
+      </p>
     </article>
   )
 }

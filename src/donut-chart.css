@@ -1,0 +1,170 @@
+/* ===== Segmented multi-series donut (Stability Chart card) ===== */
+.score-donut {
+  position: relative;
+  width: 180px;
+  height: 180px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+}
+
+.score-donut svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.donut-track {
+  fill: none;
+  stroke: var(--color-gauge-track);
+  stroke-width: 13;
+}
+
+.donut-segment {
+  fill: none;
+  stroke-width: 13;
+  stroke-linecap: round;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+.donut-segment.dimmed { opacity: 0.32; }
+
+.donut-badge {
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+.donut-badge.dimmed { opacity: 0.32; }
+
+.donut-badge rect {
+  fill: var(--color-segment-badge-bg);
+  stroke-width: 2;
+}
+
+.donut-badge text {
+  fill: var(--color-segment-badge-text);
+  font: 700 12px Outfit, "Plus Jakarta Sans", sans-serif;
+  text-anchor: middle;
+  pointer-events: none;
+}
+
+.donut-center {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+
+.donut-center > * {
+  grid-area: 1 / 1;
+}
+
+.donut-logo-badge {
+  width: 88px;
+  height: 88px;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border: 1px solid var(--color-border-accent-medium);
+  border-radius: 50%;
+  background: var(--color-bg-surface);
+  opacity: 1;
+  transform: scale(1);
+  visibility: visible;
+  transition: opacity 0.3s ease, transform 0.3s ease, visibility 0.3s;
+}
+
+.donut-logo {
+  display: block;
+  width: 64px;
+  height: auto;
+}
+
+.donut-center.is-hovering .donut-logo-badge {
+  opacity: 0;
+  transform: scale(0.78);
+  visibility: hidden;
+}
+
+.donut-readout {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  text-align: center;
+  opacity: 0;
+  transform: scale(0.9);
+  visibility: hidden;
+  transition: opacity 0.3s ease, transform 0.3s ease, visibility 0.3s;
+}
+
+.donut-center.is-hovering .donut-readout {
+  opacity: 1;
+  transform: scale(1);
+  visibility: visible;
+}
+
+.donut-readout strong {
+  font-size: 30px;
+  line-height: 1;
+  color: var(--color-text-primary);
+}
+
+.donut-readout span {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.donut-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px 16px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.donut-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.donut-legend-item i {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+
+.donut-legend-item .donut-legend-value {
+  color: var(--color-text-muted);
+  font-weight: 600;
+}
+
+.donut-legend-item.active { color: var(--color-text-primary); }
+
+@media (max-width: 640px) {
+  /* Raised specificity so the override survives the later readability.css cascade. */
+  article.score-card {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 18px;
+  }
+
+  .score-card .score-donut { align-self: center; }
+}

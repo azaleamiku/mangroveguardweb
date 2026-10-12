@@ -31,7 +31,7 @@ await mkdir(dataDirectory, { recursive: true })
 const db = new Database(dbPath)
 
 initDb(db)
-//seedDatabase(db)
+seedDatabase(db)
 
 // Abuse-sensitive endpoints: QR issuance, pairing, and batch ingest.
 const pairLimiter = createRateLimiter({ windowMs: 60_000, max: 30 })

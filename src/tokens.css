@@ -82,8 +82,10 @@
   --color-reference-tooltip-bg: #f4f6f7ee;
   --color-reference-tooltip-text: #17221f;
   --color-reference-tooltip-border: #fff;
+  /* Segmented donut chart */
+  --color-segment-badge-bg: #ffffff;
+  --color-segment-badge-text: #17221f;
   --color-gauge-track: #2d5a4d;
-  --color-gauge-circle: #dce9df;
 
   /* Decorative / Special */
   --color-placeholder-ring-1: #b8df72;

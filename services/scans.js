@@ -34,7 +34,7 @@ export async function toScan(db, dataDirectory, payload) {
       : ''
   const imageBase64 = typeof source.imageBase64 === 'string' ? source.imageBase64.trim() : ''
   let deviceId = typeof source.deviceId === 'string' ? source.deviceId.trim() : typeof source.device_id === 'string' ? source.device_id.trim() : null
-  const sessionId = typeof source.sessionId === 'string' ? source.sessionId.trim() : typeof source.session_id === 'string' ? source.session_id.trim() : null
+  let sessionId = typeof source.sessionId === 'string' ? source.sessionId.trim() : typeof source.session_id === 'string' ? source.session_id.trim() : null
   if (deviceId === '') deviceId = null
   if (sessionId === '') sessionId = null
 
@@ -69,6 +69,11 @@ export async function toScan(db, dataDirectory, payload) {
   }
 
   if (sessionId) {
+    if (!deviceId) {
+      // Sessions bind to a device; with FKs enforced the 'unknown' sentinel
+      // must exist before a device-less session can reference it.
+      db.prepare("INSERT OR IGNORE INTO devices (deviceId, deviceName, registeredAt, lastSeenAt) VALUES ('unknown', 'Unknown Device', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)").run()
+    }
     db.prepare('INSERT OR IGNORE INTO sessions (sessionId, deviceId, startedAt, endedAt) VALUES (?, ?, ?, ?)').run(sessionId, deviceId || 'unknown', new Date().toISOString(), null)
     notifySessionSubscribers()
   }

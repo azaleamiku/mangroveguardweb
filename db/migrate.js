@@ -87,6 +87,7 @@ function ensureForeignKeys(db) {
       CREATE INDEX IF NOT EXISTS idx_scannedAt ON scans(scannedAt DESC);
       CREATE INDEX IF NOT EXISTS idx_sessionId ON scans(sessionId);
       CREATE INDEX IF NOT EXISTS idx_deviceId ON scans(deviceId);
+      CREATE INDEX IF NOT EXISTS idx_sessions_startedAt ON sessions(startedAt DESC);
     `)
     db.pragma('user_version = ' + SCHEMA_VERSION)
   })
@@ -214,9 +215,9 @@ export function seedDatabase(db) {
   if (count > 0) return
 
   const assessments = [
-    { value: 'high', weight: 0.1 },
-    { value: 'moderate', weight: 0.2 },
-    { value: 'low', weight: 0.7 },
+    { value: 'high', weight: 0.15 },
+    { value: 'moderate', weight: 0.7 },
+    { value: 'low', weight: 0.15 },
   ]
   const now = new Date()
   const treeIdChars = 'abcdefghijklmnopqrstuvwxyz0123456789'
@@ -331,27 +332,39 @@ export async function migrateFromJson(db, root, scansFile) {
     const scans = JSON.parse(content)
     if (!Array.isArray(scans) || scans.length === 0) return
 
+    // Phase A: async normalization + image I/O (cannot run inside a better-sqlite3 txn).
+    const findSession = db.prepare('SELECT 1 FROM sessions WHERE sessionId = ?')
+    const findDevice = db.prepare('SELECT 1 FROM devices WHERE deviceId = ?')
+    const rows = []
+    for (const scan of scans) {
+      if (!scan || typeof scan !== 'object') continue
+      const id = typeof scan.id === 'string' && scan.id ? scan.id : crypto.randomUUID()
+      const treeId = typeof scan.treeId === 'string' ? scan.treeId.trim() : ''
+      const scannedAt = typeof scan.scannedAt === 'string' ? scan.scannedAt : ''
+      const assessment = typeof scan.assessment === 'string' ? scan.assessment.toLowerCase() : ''
+
+      if (!treeId || !['high', 'moderate', 'low'].includes(assessment)) continue
+
+      let imagePath = scan.imageUrl || scan.imagePath || ''
+      if (!imagePath && scan.imageBase64) {
+        const saved = await saveScanImage(path.join(root, 'data'), id, scan.imageBase64)
+        if (saved) imagePath = saved
+      }
+
+      // Null out references that cannot resolve to existing parent rows (FKs are enforced).
+      const sessionId = scan.sessionId && findSession.get(scan.sessionId) ? scan.sessionId : null
+      const deviceId = scan.deviceId && findDevice.get(scan.deviceId) ? scan.deviceId : null
+      rows.push({ id, treeId, scannedAt, assessment, imagePath, sessionId, deviceId, serverReceived: scan.serverReceived || new Date().toISOString() })
+    }
+
+    // Phase B: single synchronous transaction for all scan rows.
     const insert = db.prepare('INSERT OR IGNORE INTO scans (id, treeId, scannedAt, assessment, imagePath, sessionId, deviceId, serverReceived) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
-    const transaction = db.transaction(async () => {
-      for (const scan of scans) {
-        if (!scan || typeof scan !== 'object') continue
-        const id = typeof scan.id === 'string' && scan.id ? scan.id : crypto.randomUUID()
-        const treeId = typeof scan.treeId === 'string' ? scan.treeId.trim() : ''
-        const scannedAt = typeof scan.scannedAt === 'string' ? scan.scannedAt : ''
-        const assessment = typeof scan.assessment === 'string' ? scan.assessment.toLowerCase() : ''
-
-        if (!treeId || !['high', 'moderate', 'low'].includes(assessment)) continue
-
-        let imagePath = scan.imageUrl || scan.imagePath || ''
-        if (!imagePath && scan.imageBase64) {
-          const saved = await saveScanImage(path.join(root, 'data'), id, scan.imageBase64)
-          if (saved) imagePath = saved
-        }
-
-        insert.run(id, treeId, scannedAt, assessment, imagePath, scan.sessionId || null, scan.deviceId || null, scan.serverReceived || new Date().toISOString())
+    const insertAll = db.transaction((rowsToInsert) => {
+      for (const row of rowsToInsert) {
+        insert.run(row.id, row.treeId, row.scannedAt, row.assessment, row.imagePath, row.sessionId, row.deviceId, row.serverReceived)
       }
     })
-    await transaction()
+    insertAll(rows)
 
     await unlink(scansFile)
   } catch (error) {

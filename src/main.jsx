@@ -6,6 +6,7 @@ import './navigation.css'
 import './observation-logs.css'
 import './month-calendar.css'
 import './stability-chart.css'
+import './donut-chart.css'
 import './readability.css'
 
 createRoot(document.getElementById('root')).render(

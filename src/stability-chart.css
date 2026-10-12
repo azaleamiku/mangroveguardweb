@@ -9,4 +9,4 @@
 .stability-readout-badge.moderate { background: rgba(245, 158, 11, 0.2); color: #fcd34d; }
 .stability-readout-badge.high { background: rgba(52, 211, 153, 0.2); color: #6ee7b7; }
 .stability-readout-value { margin-left: 4px; font-weight: 600; color: var(--color-text-primary); }
-.stability-readout-placeholder { color: var(--color-text-muted); font-style: italic; }
+.stability-readout-placeholder { color: var(--color-text-muted); }
