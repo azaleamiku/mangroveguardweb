@@ -143,7 +143,6 @@ export default function HealthScore({ logs }) {
               <feDropShadow dx="0" dy="1.5" stdDeviation="2" floodColor="#021b1a" floodOpacity="0.35" />
             </filter>
           </defs>
-          <circle className="donut-track" cx={DONUT_CENTER} cy={DONUT_CENTER} r={DONUT_RADIUS} />
           <g transform={`rotate(-90 ${DONUT_CENTER} ${DONUT_CENTER})`}>
             {segments.map((segment) => (
               <circle

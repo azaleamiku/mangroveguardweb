@@ -15,12 +15,6 @@
   overflow: visible;
 }
 
-.donut-track {
-  fill: none;
-  stroke: var(--color-gauge-track);
-  stroke-width: 13;
-}
-
 .donut-segment {
   fill: none;
   stroke-width: 13;
