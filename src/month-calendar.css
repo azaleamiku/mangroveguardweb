@@ -1,4 +1,4 @@
-.month-activity { margin-top: 8px; }
+.month-activity { margin-top: 2px; }
 .weekday-headings, .month-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
 .weekday-headings { margin-bottom: 6px; color: var(--color-text-muted); font-size: 9px; text-align: center; }
 .month-days { grid-template-rows: none; grid-auto-flow: row; }
