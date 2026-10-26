@@ -823,7 +823,7 @@
   max-height: 147px;
 }
 
-.monitoring-card > div { margin-bottom: 6px; }
+.monitoring-card > div { margin-bottom: 8px; }
 
 /* The card centres its content, so the trailing gap would skew the balance. */
 .monitoring-card > div:last-child { margin-bottom: 0; }
@@ -832,13 +832,22 @@
   display: flex;
   align-items: center;
   justify-content: space-around;
-  padding: 14px 20px;
+  padding: 8px 20px;
   position: relative;
 }
 
 .quick-stats > div {
   flex: 1;
   text-align: center;
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 8px;
+}
+
+.quick-stats > div small,
+.quick-stats > div b {
+  display: inline;
 }
 
 .quick-stats::after {
@@ -872,8 +881,11 @@
   align-items: center;
   column-gap: 6px;
   row-gap: 2px;
-  margin: 0;
+  margin: 0 0 6px 0;
   flex-wrap: wrap;
+  width: 100%;
+  justify-content: space-between;
+  padding: 6px 0;
 }
 
 .activity-toolbar-divider {
@@ -899,7 +911,7 @@
   gap: 8px;
   min-width: 92px;
   justify-content: space-between;
-  padding: 5px 9px;
+  padding: 6px 9px;
   border: 1px solid var(--color-border-mint-medium);
   border-radius: 8px;
   background: var(--color-accent-dark);
@@ -1020,6 +1032,7 @@
   min-height: 0;
   display: flex;
   flex-direction: column;
+  padding-top: 8px;
 }
 
 .weekday-headings {
